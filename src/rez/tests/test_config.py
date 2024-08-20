@@ -6,16 +6,19 @@
 test configuration settings
 """
 import unittest
-from rez.tests.util import TestBase
+from rez.tests.util import TestBase, TempdirMixin, restore_os_environ
 from rez.exceptions import ConfigurationError
-from rez.config import Config, get_module_root_config, _replace_config
+from rez.config import Config, get_module_root_config, _replace_config, _Deprecation
 from rez.system import system
 from rez.utils.data_utils import RO_AttrDictWrapper
 from rez.packages import get_developer_package
-from rez.vendor.six import six
+from rez.deprecations import RezDeprecationWarning, warn
 import os
 import os.path
 import subprocess
+import functools
+import shutil
+import unittest.mock
 
 
 class TestConfig(TestBase):
@@ -274,14 +277,15 @@ class TestConfig(TestBase):
                 stdout = subprocess.check_output(
                     config_args + ["--json", config_key],
                     env=env,
+                    text=True,
                 )
                 self.assertEqual(
-                    six.ensure_str(stdout).strip(),
-                    six.ensure_str(json.dumps(getattr(c, config_key))),
+                    stdout.strip(),
+                    json.dumps(getattr(c, config_key)),
                 )
 
                 # Test setting via env var and fetching custom value
-                test_json_value = six.ensure_str(json.dumps(test_value))
+                test_json_value = json.dumps(test_value)
                 env["REZ_%s_JSON" % config_key.upper()] = test_json_value
                 stdout = subprocess.check_output(
                     config_args + ["--json", config_key],
@@ -291,6 +295,100 @@ class TestConfig(TestBase):
             except subprocess.CalledProcessError as error:
                 print(error.stdout)
                 raise
+
+
+class TestDeprecations(TestBase, TempdirMixin):
+    @classmethod
+    def setUpClass(cls):
+        cls.settings = {}
+        TempdirMixin.setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        TempdirMixin.tearDownClass()
+
+    def test_deprecation_from_user_config(self):
+        user_home = os.path.join(self.root, "user_home")
+        self.addCleanup(functools.partial(shutil.rmtree, user_home))
+
+        os.makedirs(user_home)
+
+        with open(os.path.join(user_home, ".rezconfig.py"), "w") as fd:
+            fd.write("packages_path = ['/tmp/asd']")
+
+        fake_deprecated_settings = {
+            "packages_path": _Deprecation("0.0.0"),
+        }
+
+        with unittest.mock.patch(
+            "rez.config._deprecated_settings",
+            fake_deprecated_settings
+        ):
+            with restore_os_environ():
+                os.environ["HOME"] = user_home
+                # On Windows, os.path.expanduser will read HOME and then USERPROFILE with Python 3.7.
+                # https://docs.python.org/3.7/library/os.path.html#os.path.expanduser
+                # Also on Windows but for Python 3.8+, it will look for USERPROFILE and then HOME.
+                # https://docs.python.org/3.8/library/os.path.html#os.path.expanduser
+                os.environ["USERPROFILE"] = user_home
+                config = Config._create_main_config()
+                with self.assertWarns(RezDeprecationWarning) as warning:
+                    _ = config.data
+                    # Assert just to ensure the test was set up properly.
+                    self.assertEqual(config.data["packages_path"], ["/tmp/asd"])
+
+                self.assertEqual(
+                    str(warning.warning),
+                    "config setting named 'packages_path' is deprecated and will be removed in 0.0.0.",
+                )
+
+    def test_deprecation_from_env_var(self):
+        fake_deprecated_settings = {
+            "packages_path": _Deprecation("0.0.0"),
+        }
+
+        with unittest.mock.patch(
+            "rez.config._deprecated_settings",
+            fake_deprecated_settings
+        ):
+            with restore_os_environ():
+                # Test with non-json env var
+                os.environ["REZ_PACKAGES_PATH"] = "/tmp/asd2"
+                os.environ["REZ_DISABLE_HOME_CONFIG"] = "1"
+                config = Config._create_main_config()
+                with self.assertWarns(RezDeprecationWarning) as warning:
+                    _ = config.data
+                    # Assert just to ensure the test was set up properly.
+                    self.assertEqual(config.data["packages_path"], ["/tmp/asd2"])
+
+                self.assertEqual(
+                    str(warning.warning),
+                    "config setting named 'packages_path' (configured through the "
+                    "REZ_PACKAGES_PATH environment variable) is deprecated and will "
+                    "be removed in 0.0.0.",
+                )
+
+            with restore_os_environ():
+                # Test with json env var
+                os.environ["REZ_PACKAGES_PATH_JSON"] = '["/tmp/asd2"]'
+                os.environ["REZ_DISABLE_HOME_CONFIG"] = "1"
+                config = Config._create_main_config()
+                with self.assertWarns(RezDeprecationWarning) as warning:
+                    _ = config.data
+                    # Assert just to ensure the test was set up properly.
+                    self.assertEqual(config.data["packages_path"], ["/tmp/asd2"])
+
+                self.assertEqual(
+                    str(warning.warning),
+                    "config setting named 'packages_path' (configured through the "
+                    "REZ_PACKAGES_PATH_JSON environment variable) is deprecated and will "
+                    "be removed in 0.0.0.",
+                )
+
+    def test_non_preformatted_warning(self):
+        with self.assertWarns(DeprecationWarning) as warning:
+            warn('Warning Message', DeprecationWarning, pre_formatted=False)
+        self.assertEqual(str(warning.warning), 'Warning Message')
 
 
 if __name__ == "__main__":

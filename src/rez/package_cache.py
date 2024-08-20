@@ -2,6 +2,7 @@
 # Copyright Contributors to the Rez Project
 
 
+import json
 import os
 import os.path
 import errno
@@ -21,13 +22,14 @@ from contextlib import contextmanager
 from rez.config import config
 from rez.exceptions import PackageCacheError
 from rez.vendor.lockfile import LockFile, NotLocked
-from rez.utils import json
+from rez.vendor.progress.spinner import PixelSpinner
 from rez.utils.filesystem import safe_listdir, safe_makedirs, safe_remove, \
     forceful_rmtree
 from rez.utils.colorize import ColorizedStreamHandler
 from rez.utils.logging_ import print_warning
 from rez.packages import get_variant
 from rez.system import system
+from rez.utils.filesystem import rename
 
 
 class PackageCache(object):
@@ -41,14 +43,13 @@ class PackageCache(object):
 
     * A rez-env is performed;
     * The context is resolved;
-    * For each variant in the context, we check to see if it's present in the
-      current package cache;
+    * For each variant in the context, we check to see if it's present in the current package cache;
     * If it is, the variant's root is remapped to this location.
 
-    A package cache is _not_ a package repository. It just stores copies of
+    A package cache is **not** a package repository. It just stores copies of
     variant payloads - no package definitions are stored.
 
-    Payloads are stored into the following structure:
+    Payloads are stored into the following structure::
 
         /<cache_dir>/foo/1.0.0/af8d/a/<payload>
                                    /a.json
@@ -62,13 +63,25 @@ class PackageCache(object):
     matching variant.
     """
 
-    VARIANT_NOT_FOUND = 0  # Variant was not found
-    VARIANT_FOUND = 1  # Variant was found
-    VARIANT_CREATED = 2  # Variant was created
-    VARIANT_COPYING = 3  # Variant payload is still being copied to this cache
-    VARIANT_COPY_STALLED = 4  # Variant payload copy has stalled
-    VARIANT_PENDING = 5  # Variant is pending caching
-    VARIANT_REMOVED = 6  # Variant was deleted
+    VARIANT_NOT_FOUND = 0  #: Variant was not found
+    VARIANT_FOUND = 1  #: Variant was found
+    VARIANT_CREATED = 2  #: Variant was created
+    VARIANT_COPYING = 3  #: Variant payload is still being copied to this cache
+    VARIANT_COPY_STALLED = 4  #: Variant payload copy has stalled
+    VARIANT_PENDING = 5  #: Variant is pending caching
+    VARIANT_REMOVED = 6  #: Variant was deleted
+
+    STATUS_DESCRIPTIONS = {
+        VARIANT_NOT_FOUND: "was not found",
+        VARIANT_FOUND: "was found",
+        VARIANT_CREATED: "was created",
+        VARIANT_COPYING: "payload is still being copied to this cache",
+        VARIANT_COPY_STALLED: "payload copy has stalled.\nSee "
+                              "https://rez.readthedocs.io/en/stable/caching.html#cleaning-the-cache "
+                              "for more information.",
+        VARIANT_PENDING: "is pending caching",
+        VARIANT_REMOVED: "was deleted",
+    }
 
     _FILELOCK_TIMEOUT = 10
     _COPYING_TIME_INC = 0.2
@@ -117,7 +130,7 @@ class PackageCache(object):
 
         return rootpath
 
-    def add_variant(self, variant, force=False):
+    def add_variant(self, variant, force=False, wait_for_copying=False, logger=None):
         """Copy a variant's payload into the cache.
 
         The following steps are taken to ensure muti-thread/proc safety, and to
@@ -145,18 +158,17 @@ class PackageCache(object):
           config.package_cache_same_device' is False.
 
         Args:
-            variant (`Variant`): The variant to copy into this cache
+            variant (Variant): The variant to copy into this cache
             force (bool): Copy the variant regardless. Use at your own risk (there
                 is no guarantee the resulting variant payload will be functional).
+            wait_for_copying (bool): Whether the caching step should block when one of the
+                pending variants is marked as already copying.
+            logger (None | Logger): If a logger is provided, log information to it.
 
         Returns:
-            2-tuple:
+            tuple: 2-tuple:
             - str: Path to cached payload
-            - int: One of:
-              - VARIANT_FOUND
-              - VARIANT_CREATED
-              - VARIANT_COPYING
-              - VARIANT_COPY_STALLED
+            - int: One of VARIANT_FOUND, VARIANT_CREATED, VARIANT_COPYING, VARIANT_COPY_STALLED
         """
         from rez.utils.base26 import get_next_base26
         from rez.utils.filesystem import safe_makedirs
@@ -190,16 +202,9 @@ class PackageCache(object):
                     "Not cached - package is local: %s" % package.uri
                 )
 
-            # Package is already on same disk device as package cache. Note that
-            # this check is skipped on Windows + Py<3.4, as os.stat does not
-            # support device identification.
-            #
-            dev_stat_not_supported = (
-                platform.system() == "Windows"
-                and sys.version_info[:2] < (3, 4)
-            )
+            # Package is already on same disk device as package cache
 
-            if not config.package_cache_same_device and not dev_stat_not_supported:
+            if not config.package_cache_same_device:
                 st_pkgcache = os.stat(self.path)
                 st_variant = os.stat(variant_root)
                 if st_pkgcache.st_dev == st_variant.st_dev:
@@ -210,7 +215,7 @@ class PackageCache(object):
 
             # Package belongs to a temp repo (this occurs when a package is
             # tested on pre_build/pre_release - see
-            # https://github.com/AcademySoftwareFoundation/rez/wiki/Package-Definition-Guide#tests)
+            # https://rez.readthedocs.io/en/stable/package_definition.html#tests)
             #
             if package.repository.name() == "filesystem" and \
                     package.repository.location.startswith(config.tmpdir + os.sep):
@@ -219,15 +224,40 @@ class PackageCache(object):
                     % package.repository
                 )
 
-        no_op_statuses = (
+        no_op_statuses = {
             self.VARIANT_FOUND,
-            self.VARIANT_COPYING,
-            self.VARIANT_COPY_STALLED
-        )
+            self.VARIANT_COPY_STALLED,
+        }
+        if not wait_for_copying:
+            # Copying variants are only no-ops if we want to ignore them.
+            no_op_statuses.add(self.VARIANT_COPYING)
 
         # variant already exists, or is being copied to cache by another thread/proc
         status, rootpath = self._get_cached_root(variant)
         if status in no_op_statuses:
+            if logger:
+                logger.warning(f"Not caching {variant.qualified_name}. "
+                               f"Variant {self.STATUS_DESCRIPTIONS[status]}")
+            return (rootpath, status)
+
+        if wait_for_copying and status == self.VARIANT_COPYING:
+            spinner = PixelSpinner(f"Waiting for {variant.qualified_name} to finish copying. ")
+            while status == self.VARIANT_COPYING:
+                spinner.next()
+                time.sleep(self._COPYING_TIME_INC)
+                status, rootpath = self._get_cached_root(variant)
+
+            # Status has changed, so report the change and return
+            if logger:
+                if status == self.VARIANT_FOUND:
+                    # We have resolved into a satisfactory state
+                    logger.info(
+                        f"{variant.qualified_name} {self.STATUS_DESCRIPTIONS[status]}"
+                    )
+                else:
+                    logger.warning(
+                        f"{variant.qualified_name} {self.STATUS_DESCRIPTIONS[status]}"
+                    )
             return (rootpath, status)
 
         # 1.
@@ -342,7 +372,7 @@ class PackageCache(object):
                     os.chmod(rootpath, st.st_mode | stat.S_IWUSR)
 
                 # actually a mv
-                os.rename(rootpath, dest_rootpath)
+                rename(rootpath, dest_rootpath)
 
             except OSError as e:
                 if e.errno == errno.ENOENT:
@@ -376,20 +406,39 @@ class PackageCache(object):
 
         This method is called when a context is created or sourced. Variants
         are then added to the cache in a separate process.
+
+        .. deprecated:: 3.2.0
+           Use :method:`add_variants` instead.
+        """
+        return self.add_variants(variants, package_cache_async=True)
+
+    def add_variants(self, variants, package_cache_async=True):
+        """Add the given variants to the package payload cache.
         """
 
-        # A prod install is necessary because add_variants_async works by
+        # A prod install is necessary because add_variants works by
         # starting a rez-pkg-cache proc, and this can only be done reliably in
         # a prod install. On non-windows we could fork instead, but there would
         # remain no good solution on windows.
         #
         if not system.is_production_rez_install:
             raise PackageCacheError(
-                "PackageCache.add_variants_async is only supported in a "
+                "PackageCache.add_variants is only supported in a "
                 "production rez installation."
             )
 
         variants_ = []
+        cachable_statuses = {
+            self.VARIANT_NOT_FOUND,
+        }
+        if not package_cache_async:
+            # We want to monitor copying variants if we're synchronous.
+            # We also want to report that a status has been stalled, so we'll
+            # hand that off to the caching function as well
+            cachable_statuses.update({
+                self.VARIANT_COPYING,
+                self.VARIANT_COPY_STALLED,
+            })
 
         # trim down to those variants that are cachable, and not already cached
         for variant in variants:
@@ -397,7 +446,7 @@ class PackageCache(object):
                 continue
 
             status, _ = self._get_cached_root(variant)
-            if status == self.VARIANT_NOT_FOUND:
+            if status in cachable_statuses:
                 variants_.append(variant)
 
         # if there are no variants to add, and no potential cleanup to do, then exit
@@ -438,6 +487,20 @@ class PackageCache(object):
             with open(filepath, 'w') as f:
                 f.write(json.dumps(handle_dict))
 
+        if package_cache_async:
+            self._subprocess_package_caching_daemon(self.path)
+        else:
+            # syncronous caching
+            self._run_caching_operation(wait_for_copying=True)
+
+    @staticmethod
+    def _subprocess_package_caching_daemon(path):
+        """
+        Run the package cache in a daemon process
+
+        Returns:
+            subprocess.Popen : The package caching daemon process
+        """
         # configure executable
         if platform.system() == "Windows":
             kwargs = {
@@ -454,7 +517,7 @@ class PackageCache(object):
             raise RuntimeError("Did not find rez-pkg-cache executable")
 
         # start caching subproc
-        args = [exe, "--daemon", self.path]
+        args = [exe, "--daemon", path]
 
         try:
             with open(os.devnull, 'w') as devnull:
@@ -465,8 +528,8 @@ class PackageCache(object):
                 else:
                     out_target = devnull
 
-                subprocess.Popen(
-                    [exe, "--daemon", self.path],
+                return subprocess.Popen(
+                    args,
                     stdout=out_target,
                     stderr=out_target,
                     **kwargs
@@ -482,7 +545,8 @@ class PackageCache(object):
         """Get variants and their current statuses from the cache.
 
         Returns:
-            List of 3-tuple:
+            tuple: List of 3-tuple:
+
             - `Variant`: The cached variant
             - str: Local cache path for variant, if determined ('' otherwise)
             - int: Status. One of:
@@ -568,6 +632,15 @@ class PackageCache(object):
             if pid > 0:
                 sys.exit(0)
 
+        self._run_caching_operation(wait_for_copying=False)
+
+    def _run_caching_operation(self, wait_for_copying=True):
+        """Copy pending variants.
+
+        Args:
+            wait_for_copying (bool): Whether the caching step should block when one of the
+                pending variants is marked as already copying.
+        """
         logger = self._init_logging()
 
         # somewhere for the daemon to store stateful info
@@ -578,7 +651,7 @@ class PackageCache(object):
         # copy variants into cache
         try:
             while True:
-                keep_running = self._run_daemon_step(state)
+                keep_running = self._run_caching_step(state, wait_for_copying=wait_for_copying)
                 if not keep_running:
                     break
         except Exception:
@@ -598,8 +671,8 @@ class PackageCache(object):
         This should be run periodically via 'rez-pkg-cache --clean'.
 
         This removes:
-        - Variants that have not been used in more than
-          'config.package_cache_max_variant_days' days;
+
+        - Variants that have not been used in more than 'config.package_cache_max_variant_days' days;
         - Variants that have stalled;
         - Variants that are already pending deletion (remove_variant() was used).
 
@@ -692,12 +765,13 @@ class PackageCache(object):
             except NotLocked:
                 pass
 
-    def _run_daemon_step(self, state):
+    def _run_caching_step(self, state, wait_for_copying=False):
         logger = state["logger"]
 
         # pick a random pending variant to copy
         pending_filenames = set(os.listdir(self._pending_dir))
-        pending_filenames -= set(state.get("copying", set()))
+        if not wait_for_copying:
+            pending_filenames -= set(state.get("copying", set()))
         if not pending_filenames:
             return False
 
@@ -720,7 +794,11 @@ class PackageCache(object):
         t = time.time()
 
         try:
-            rootpath, status = self.add_variant(variant)
+            rootpath, status = self.add_variant(
+                variant,
+                wait_for_copying=wait_for_copying,
+                logger=logger,
+            )
 
         except PackageCacheError as e:
             # variant cannot be cached, so remove as a pending variant

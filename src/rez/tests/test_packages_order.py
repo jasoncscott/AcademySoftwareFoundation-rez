@@ -12,7 +12,7 @@ from rez.package_order import NullPackageOrder, PackageOrder, PerFamilyOrder, Ve
     TimestampPackageOrder, SortedOrder, PackageOrderList, from_pod
 from rez.packages import iter_packages
 from rez.tests.util import TestBase, TempdirMixin
-from rez.vendor.version.version import Version
+from rez.version import Version
 
 
 class _BaseTestPackagesOrder(TestBase, TempdirMixin):
@@ -52,11 +52,6 @@ class _BaseTestPackagesOrder(TestBase, TempdirMixin):
 
 class TestAbstractPackageOrder(TestBase):
     """Test case for the abstract PackageOrder class"""
-
-    def test_reorder(self):
-        """Validate reorder is not implemented"""
-        with self.assertRaises(NotImplementedError):
-            PackageOrder().reorder([])
 
     def test_to_pod(self):
         """Validate to_pod is not implemented"""

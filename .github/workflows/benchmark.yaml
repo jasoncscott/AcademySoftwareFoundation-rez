@@ -5,36 +5,37 @@ name: benchmark
 on:
   release:
     types: [released]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
 
 jobs:
   run_benchmark:
     name: run_benchmark
     runs-on: ubuntu-latest
 
+    if: ${{ github.event_name == 'release' || contains(github.event.pull_request.labels.*.name, 'run-benchmarks') }}
+
     strategy:
       matrix:
         python-version:
-          - '2.7'
           - '3.7'
-
-      # without this, we're sometimes getting at the end of this job:
-      # '[error] The operation was canceled'.
-      # Do we hit a resource limit?
-      #
-      max-parallel: 1
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+      - name: Setup python ${{ matrix.python-version }}
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install Rez
         run: |
           mkdir ./installdir
+
           python ./install.py ./installdir
 
       - name: Run Benchmark
@@ -48,7 +49,7 @@ jobs:
         run: |
           python ./.github/scripts/validate_benchmark.py
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: "benchmark-result-${{ matrix.python-version }}"
           path: ./out
@@ -61,34 +62,41 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - '2.7'
           - '3.7'
 
       # so we don't have jobs trying to push to git at the same time
       max-parallel: 1
 
     steps:
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: "benchmark-result-${{ matrix.python-version }}"
           path: .
 
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Checkout (release)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        if: ${{ github.event_name =='release' }}
         with:
-          ref: master
+          ref: main
           path: src
 
           # This is a PAT from an Admin user. We do this in order to be able to write to a
-          # protected branch (master) from this workflow.
+          # protected branch (main) from this workflow.
           # See https://github.community/t/how-to-push-to-protected-branches-in-a-github-action/16101/14
           #
-          token: "${{ secrets.GH_ACTION_TOKEN }}"
+          # Disable for now until we find a better solution.
+          # token: "${{ secrets.GH_ACTION_TOKEN }}"
+
+      - name: Checkout (pr)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        if: ${{ github.event_name !='release' }}
+        with:
+          path: src
+
+      - name: Setup python ${{ matrix.python-version }}
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ matrix.python-version }}
 
       # Note failing due to
       # https://github.com/actions/virtual-environments/issues/675
@@ -105,19 +113,29 @@ jobs:
           python ./.github/scripts/store_benchmark.py
         working-directory: src
 
-      - name: Setup git config
+      - name: Create summary
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          echo '<details>' >> $GITHUB_STEP_SUMMARY
+          echo '<summary>Results</summary>' >> $GITHUB_STEP_SUMMARY
+          cat metrics/benchmarking/RESULTS.md >> $GITHUB_STEP_SUMMARY
+          echo '</details>' >> $GITHUB_STEP_SUMMARY
         working-directory: src
 
-      - name: Git commit and push
-        run: |
-          if [[ "$(git status --porcelain)" == "" ]]; then
-            echo "Nothing new to commit"
-          else
-            git add --all
-            git commit -m "Generated from GitHub "${{ github.workflow }}" Workflow"
-            git push origin master
-          fi
-        working-directory: src
+      # - name: Setup git config
+      #   if: ${{ github.event_name == 'release' }}
+      #   run: |
+      #     git config user.name 'github-actions[bot]'
+      #     git config user.email 'github-actions[bot]@users.noreply.github.com'
+      #   working-directory: src
+
+      # - name: Git commit and push
+      #   if: ${{ github.event_name == 'release' }}
+      #   run: |
+      #     if [[ "$(git status --porcelain)" == "" ]]; then
+      #       echo "Nothing new to commit"
+      #     else
+      #       git add --all
+      #       git commit -m "Generated from GitHub "${{ github.workflow }}" Workflow"
+      #       git push origin main
+      #     fi
+      #   working-directory: src

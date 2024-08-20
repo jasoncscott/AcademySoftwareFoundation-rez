@@ -24,21 +24,18 @@ class System(object):
     @cached_property
     def platform(self):
         """Get the current platform.
-        @returns The current platform. Examples:
 
-            linux
-            windows
-            osx
+        Returns:
+            The current platform (windows, linux, osx, etc).
         """
         return platform_.name
 
     @cached_property
     def arch(self):
         """Get the current architecture.
-        @returns The current architecture. Examples:
 
-            x86_64
-            i386
+        Returns:
+            The current architecture (x86_64, i386, etc).
         """
         r = platform_.arch
         return self._make_safe_version_string(r)
@@ -46,20 +43,18 @@ class System(object):
     @cached_property
     def os(self):
         """Get the current operating system.
-        @returns The current operating system. Examples:
 
-            Ubuntu-12.04
-            CentOS-5.4
-            windows-6.1.7600.sp1
-            osx-10.6.2
+        Returns:
+            The current operating system (Ubuntu-22.04, CentOS-7.8, windows-6.1.7600.sp1, etc).
         """
         r = platform_.os
         return self._make_safe_version_string(r)
 
     @cached_property
     def variant(self):
-        """Returns a list of the form ["platform-X", "arch-X", "os-X"] suitable
-        for use as a variant in a system-dependent package."""
+        """Returns a list of the form ``["platform-X", "arch-X", "os-X"]`` suitable
+        for use as a variant in a system-dependent package.
+        """
         return ["platform-%s" % self.platform,
                 "arch-%s" % self.arch,
                 "os-%s" % self.os]
@@ -68,10 +63,10 @@ class System(object):
     @cached_property
     def shell(self):
         """Get the current shell.
-        @returns The current shell this process is running in. Examples:
 
-            bash
-            tcsh
+        Returns:
+            The current shell this process is running in (bash, tcsh, pwsh, etc). On Windows,
+            the return value is always "powershell".
         """
         from rez.shells import get_shell_types
         shells = set(get_shell_types())
@@ -79,19 +74,23 @@ class System(object):
             raise RezSystemError("no shells available")
 
         if self.platform == "windows":
-            return "cmd"
+            return "powershell"
         else:
             import subprocess as sp
             shell = None
 
-            # check parent process via ps
-            try:
-                args = ['ps', '-o', 'args=', '-p', str(os.getppid())]
-                proc = sp.Popen(args, stdout=sp.PIPE)
-                output = proc.communicate()[0]
-                shell = os.path.basename(output.strip().split()[0]).replace('-', '')
-            except Exception:
-                pass
+            parent_pid = os.getppid()
+            if parent_pid != 0:
+                # When run from inside docker without an interactive shell,
+                # the parent pid will be 0, which will cause "ps" to
+                # print an error message: "process ID out of range".
+                try:
+                    args = ['ps', '-o', 'args=', '-p', str(parent_pid)]
+                    proc = sp.Popen(args, stdout=sp.PIPE, text=True)
+                    output = proc.communicate()[0]
+                    shell = os.path.basename(output.strip().split()[0]).replace('-', '')
+                except Exception:
+                    pass
 
             # check $SHELL
             if shell not in shells:
@@ -99,7 +98,7 @@ class System(object):
 
             # traverse parent procs via /proc/(pid)/status
             if shell not in shells:
-                pid = str(os.getppid())
+                pid = str(parent_pid)
                 found = False
 
                 while not found:
@@ -172,7 +171,7 @@ class System(object):
     @cached_property
     def fqdn(self):
         """
-        @returns Fully qualified domain name, eg 'somesvr.somestudio.com'
+        Returns the fully qualified domain name (FQDN) of the current machine, eg ``somesvr.somestudio.com``.
         """
         import socket
         return socket.getfqdn()
@@ -180,7 +179,7 @@ class System(object):
     @cached_property
     def hostname(self):
         """
-        @returns The machine hostname, eg 'somesvr'
+        Returns the machine hostname, eg ``somesvr``.
         """
         import socket
         return socket.gethostname()
@@ -188,7 +187,7 @@ class System(object):
     @cached_property
     def domain(self):
         """
-        @returns The domain, eg 'somestudio.com'
+        Returns the domain, eg ``somestudio.com``.
         """
         try:
             return self.fqdn.split('.', 1)[1]
@@ -249,14 +248,11 @@ class System(object):
 
     @property
     def selftest_is_running(self):
-        """Return True if tests are running via rez-selftest tool."""
+        """Return True if tests are running via ``rez-selftest`` tool."""
         return os.getenv("__REZ_SELFTEST_RUNNING") == "1"
 
     def get_summary_string(self):
         """Get a string summarising the state of Rez as a whole.
-
-        Returns:
-            String.
         """
         from rez.plugin_managers import plugin_manager
 
@@ -274,8 +270,8 @@ class System(object):
 
         Args:
             hard (bool): Perform a 'hard' cache clear. This just means that the
-                memcached cache is also cleared. Generally this is not needed -
-                this option is for debugging purposes.
+                memcached cache is also cleared. Generally this is not needed.
+                This option is for debugging purposes.
         """
         from rez.package_repository import package_repository_manager
         from rez.utils.memcached import memcached_client

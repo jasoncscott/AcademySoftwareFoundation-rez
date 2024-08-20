@@ -2,7 +2,6 @@
 # Copyright Contributors to the Rez Project
 
 
-from __future__ import print_function
 from contextlib import contextmanager
 import logging
 import time
@@ -63,10 +62,8 @@ class _Printer(object):
                 msg = msg % nargs
             self.printer_function(msg)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.printer_function)
-
-    __bool__ = __nonzero__  # py3 compat
 
 
 @contextmanager
@@ -85,7 +82,7 @@ def view_file_logs(globbed_path, loglevel_index=None):
     Prints to stdout.
 
     Args:
-        globbed_path (str): Logfiles, eg '/foo/logs/*.log'
+        globbed_path (str): Logfiles, eg ``/foo/logs/*.log``
         loglevel_index (int): Position on each log line where log level
             (INFO etc) is expected. This is used for colorisation only, and if
             None, no colors are applied.

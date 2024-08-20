@@ -28,7 +28,7 @@ def get_valid_build_systems(working_dir, package=None):
             must be present for the 'custom' build system type.
 
     Returns:
-        List of class: Valid build system class types.
+        list[type[BuildSystem]]: Valid build system class types.
     """
     from rez.plugin_managers import plugin_manager
     from rez.exceptions import PackageMetadataError
@@ -78,36 +78,6 @@ def create_build_system(working_dir, buildsys_type=None, package=None, opts=None
         clss = get_valid_build_systems(working_dir, package=package)
 
         if not clss:
-            # Special case - bez. This is an old deprecated build system,
-            # which expects a rezbuild.py file. Include info in error showing
-            # how to port to a custom build command.
-            #
-            if os.path.exists(os.path.join(working_dir, "rezbuild.py")):
-                msg = (
-                    "No build system is associated with the path %s.\n"
-                    "\n"
-                    "There is a rezbuild.py file present, suggesting you were "
-                    "using the deprecated bez build system. You need to use a "
-                    "custom build command instead. You can port your existing "
-                    "rezbuild.py like so:\n"
-                    "\n"
-                    "Add this line to package.py:\n"
-                    "\n"
-                    "    build_command = 'python {root}/rezbuild.py {install}'\n"
-                    "\n"
-                    "Add these lines to rezbuild.py:\n"
-                    "\n"
-                    "    if __name__ == '__main__':\n"
-                    "        import os, sys\n"
-                    "        build(\n"
-                    "            source_path=os.environ['REZ_BUILD_SOURCE_PATH'],\n"
-                    "            build_path=os.environ['REZ_BUILD_PATH'],\n"
-                    "            install_path=os.environ['REZ_BUILD_INSTALL_PATH'],\n"
-                    "            targets=sys.argv[1:]\n"
-                    "        )"
-                )
-                raise BuildSystemError(msg % working_dir)
-
             raise BuildSystemError(
                 "No build system is associated with the path %s" % working_dir)
 
@@ -221,16 +191,17 @@ class BuildSystem(object):
             build_type: A BuildType (i.e local or central).
 
         Returns:
-            A dict containing the following information:
+            dict: A dict containing the following information:
+
             - success: Bool indicating if the build was successful.
             - extra_files: List of created files of interest, not including
-                build targets. A good example is the interpreted context file,
-                usually named 'build.rxt.sh' or similar. These files should be
-                located under build_path. Rez may install them for debugging
-                purposes.
+              build targets. A good example is the interpreted context file,
+              usually named 'build.rxt.sh' or similar. These files should be
+              located under build_path. Rez may install them for debugging
+              purposes.
             - build_env_script: If this instance was created with write_build_scripts
-                as True, then the build should generate a script which, when run
-                by the user, places them in the build environment.
+              as True, then the build should generate a script which, when run
+              by the user, places them in the build environment.
         """
         raise NotImplementedError
 

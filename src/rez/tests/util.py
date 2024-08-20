@@ -2,8 +2,6 @@
 # Copyright Contributors to the Rez Project
 
 
-from __future__ import print_function
-
 import unittest
 from rez import module_root_path
 from rez.config import config, _create_locked_config
@@ -18,6 +16,7 @@ import os
 import functools
 import sys
 import json
+import copy
 from contextlib import contextmanager
 
 # https://pypi.org/project/parameterized
@@ -39,6 +38,11 @@ class TestBase(unittest.TestCase):
         cls.settings = {}
 
     def setUp(self):
+        # We have some tests that unfortunately don't clean themselves up
+        # after they are done. Store the origianl environment to be
+        # restored in tearDown
+        self.__environ = copy.deepcopy(os.environ)
+
         self.maxDiff = None
         os.environ["REZ_QUIET"] = "true"
 
@@ -56,6 +60,10 @@ class TestBase(unittest.TestCase):
 
     def tearDown(self):
         self.teardown_config()
+        os.environ = self.__environ
+        # Try to clear as much caches as possible to avoid tests
+        # leaking data into each other.
+        system.clear_caches()
 
     @classmethod
     def data_path(cls, *dirs):
@@ -124,6 +132,13 @@ class TestBase(unittest.TestCase):
             for k, v in self.settings.items()
         )
 
+    def inject_python_repo(self):
+        self.update_settings(
+            {
+                "packages_path": config.packages_path + [os.environ["__REZ_SELFTEST_PYTHON_REPO"]],
+            }
+        )
+
 
 class TempdirMixin(object):
     """Mixin that adds tmpdir create/delete."""
@@ -172,33 +187,12 @@ def find_file_in_path(to_find, path_str, pathsep=None, reverse=True):
 def program_dependent(program_name, *program_names):
     """Function decorator that skips the function if not all given programs are
     visible."""
-    import subprocess
-
-    program_tests = {
-        "cmake": ['cmake', '-h'],
-        "make": ['make', '-h'],
-        "g++": ["g++", "--help"]
-    }
-
-    # test if programs all exist
-    def _test(name):
-        command = program_tests[name]
-
-        with open(os.devnull, 'wb') as DEVNULL:
-            try:
-                subprocess.check_call(command, stdout=DEVNULL, stderr=DEVNULL)
-            except (OSError, IOError, subprocess.CalledProcessError):
-                return False
-            else:
-                return True
-
     names = [program_name] + list(program_names)
-    all_exist = all(_test(x) for x in names)
 
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            if not all_exist:
+            if not all(shutil.which(x) for x in names):
                 self.skipTest(
                     "Requires all programs to be present and functioning: %s"
                     % names
@@ -229,15 +223,51 @@ def per_available_shell(exclude=None):
 
     # https://pypi.org/project/parameterized
     if use_parameterized:
-        return parameterized.expand(shells)
+
+        class rez_parametrized(parameterized):
+
+            # Taken from https://github.com/wolever/parameterized/blob/b9f6a640452bcfdea08efc4badfe5bfad043f099/parameterized/parameterized.py#L612  # noqa
+            @classmethod
+            def param_as_standalone_func(cls, p, func, name):
+                # @wraps(func)
+                def standalone_func(*args, **kwargs):
+                    # Make sure to set the default shell to the requested shell. This
+                    # simplifies tests and removes the need to remember passing the shell
+                    # kward to execute_shell and co inside the tests.
+                    # Subclassing parameterized is fragile, but we can't do better for now.
+                    args[0].update_settings({"default_shell": p.args[0]})
+                    return func(*(args + p.args), **p.kwargs, **kwargs)
+
+                standalone_func.__name__ = name
+
+                # place_as is used by py.test to determine what source file should be
+                # used for this test.
+                standalone_func.place_as = func
+
+                # Remove __wrapped__ because py.test will try to look at __wrapped__
+                # to determine which parameters should be used with this test case,
+                # and obviously we don't need it to do any parameterization.
+                try:
+                    del standalone_func.__wrapped__
+                except AttributeError:
+                    pass
+                return standalone_func
+
+        return rez_parametrized.expand(shells)
 
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, shell=None):
+
             for shell in shells:
                 print("\ntesting in shell: %s..." % shell)
 
                 try:
+                    # Make sure to set the default shell to the requested shell. This
+                    # simplifies tests and removes the need to remember passing the shell
+                    # kward to execute_shell and co inside the tests.
+                    self.update_settings({"default_shell": shell})
+
                     func(self, shell=shell)
                 except Exception as e:
                     # Add the shell to the exception message, if possible.
@@ -265,7 +295,7 @@ def install_dependent():
             else:
                 self.skipTest(
                     "Must be run via 'rez-selftest' tool, see "
-                    "https://github.com/AcademySoftwareFoundation/rez/wiki/Installation#installation-script"
+                    "https://rez.readthedocs.io/en/stable/installation.html#installation-script"
                 )
         return wrapper
     return decorator

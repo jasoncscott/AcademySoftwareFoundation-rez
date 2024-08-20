@@ -5,7 +5,6 @@
 '''
 Manipulate a package cache.
 '''
-from __future__ import print_function
 from argparse import SUPPRESS
 import os.path
 import sys
@@ -50,7 +49,7 @@ def setup_parser(parser, completions=False):
     parser.add_argument(
         "-f", "--force", action="store_true",
         help="Force a package add, even if package is not cachable. Only "
-        "applicable with --add"
+        "applicable with --add-variants"
     )
     parser.add_argument(
         "DIR", nargs='?',

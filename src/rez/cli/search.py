@@ -5,8 +5,6 @@
 """
 Search for packages
 """
-from __future__ import print_function
-
 import os
 import sys
 
@@ -57,9 +55,6 @@ def setup_parser(parser, completions=False):
         help="only show packages released after the given time. Supported "
         "formats are: epoch time (eg 1393014494), or relative time (eg -10s, "
         "-5m, -0.5h, -10d)")
-    parser.add_argument(
-        "-s", "--sort", action="store_true",
-        help="print results in sorted order (deprecated)")
     PKG_action = parser.add_argument(
         "PKG", type=str, nargs='?',
         help="packages to search, glob-style patterns are supported")

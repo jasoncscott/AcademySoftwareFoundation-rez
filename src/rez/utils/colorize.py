@@ -2,22 +2,21 @@
 # Copyright Contributors to the Rez Project
 
 
-from __future__ import print_function
-
 import sys
 import logging
 from rez.vendor import colorama
-from rez.config import config
+
+# Important - we don't want to init Colorama at startup,
+# because colorama prints a RESET_ALL character at exit. This in turn adds
+# unexpected output when capturing the output of a command run in a
+# ResolvedContext, for example.
+# While we're not initializing colorama at all anymore, this comment is left
+# in case someone thought about putting it back: Make sure to do it lazily.
 
 
-_initialised = False
-
-
-def _init_colorama():
-    global _initialised
-    if not _initialised:
-        colorama.init()
-        _initialised = True
+def colorama_wrap(stream):
+    """ Wrap the stream with colorama so that it can display colors on any OS """
+    return colorama.initialise.wrap_stream(stream, convert=None, strip=None, autoreset=False, wrap=True)
 
 
 def stream_is_tty(stream):
@@ -219,14 +218,9 @@ def _color(str_, fore_color=None, back_color=None, styles=None):
     .. _Colorama:
         https://pypi.python.org/pypi/colorama
     """
+    from rez.config import config  # Avoid circular import
     if not config.get("color_enabled", False):
         return str_
-
-    # lazily init colorama. This is important - we don't want to init at startup,
-    # because colorama prints a RESET_ALL character atexit. This in turn adds
-    # unexpected output when capturing the output of a command run in a
-    # ResolvedContext, for example.
-    _init_colorama()
 
     colored = ""
     if not styles:
@@ -243,6 +237,7 @@ def _color(str_, fore_color=None, back_color=None, styles=None):
 
 
 def _get_style_from_config(key):
+    from rez.config import config  # Avoid circular import
     fore_color = config.get("%s_fore" % key, '')
     back_color = config.get("%s_back" % key, '')
     styles = config.get("%s_styles" % key, None)
@@ -255,13 +250,11 @@ class ColorizedStreamHandler(logging.StreamHandler):
     This handler uses the `Colorama`_ module to style the log messages based
     on the rez configuration.
 
-    Attributes:
-      STYLES (dict): A mapping between the Python logger levels and a function
-        that can be used to provide the appropriate styling.
-
     .. _Colorama:
         https://pypi.python.org/pypi/colorama
     """
+    #: A mapping between the Python logger levels and a function that can be used
+    #: to provide the appropriate styling.
     STYLES = {
         50: critical,
         40: error,
@@ -270,6 +263,10 @@ class ColorizedStreamHandler(logging.StreamHandler):
         10: debug,
         0: notset,
     }
+
+    def __init__(self, stream=None):
+        super(ColorizedStreamHandler, self).__init__(stream)
+        self.stream = colorama_wrap(self.stream)
 
     @property
     def is_tty(self):
@@ -283,6 +280,7 @@ class ColorizedStreamHandler(logging.StreamHandler):
 
     @property
     def is_colorized(self):
+        from rez.config import config  # Avoid circular import
         return config.get("color_enabled", False) == "force" or self.is_tty
 
     def _get_style_function_for_level(self, level):
@@ -315,11 +313,14 @@ class ColorizedStreamHandler(logging.StreamHandler):
 
 class Printer(object):
     def __init__(self, buf=sys.stdout):
-        self.buf = buf
+        from rez.config import config  # Avoid circular import
         self.colorize = (
             config.get("color_enabled", False) == "force"
             or stream_is_tty(buf)
         )
+        if self.colorize:
+            buf = colorama_wrap(buf)
+        self.buf = buf
 
     def __call__(self, msg='', style=None):
         print(self.get(msg, style), file=self.buf)

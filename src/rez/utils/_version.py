@@ -3,4 +3,5 @@
 
 
 # Update this value to version up Rez. Do not place anything else in this file.
-_rez_version = "2.112.0"
+# Using .devN allows us to run becnmarks and create proper benchmark reports on PRs.
+_rez_version = "3.1.1"

@@ -8,6 +8,7 @@ build/
 dist/
 htmlcov/
 .coverage
+coverage.xml
 *~
 docs/_build
 .DS_Store
@@ -15,3 +16,10 @@ wiki/out
 LATEST_CHANGELOG.md
 __pycache__
 .git-commit-template
+.vscode/
+.venv/
+docs/source/api/
+docs/source/commands/
+__tests_pkg_repo/
+.idea/
+venv/

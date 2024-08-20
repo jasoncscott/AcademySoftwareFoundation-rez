@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import os.path
 import json
@@ -59,7 +58,8 @@ def store_result():
     destdir = '-'.join((
         time.strftime("%Y.%m.%d"),
         "%d.%d" % sys.version_info[:2],
-        _rez_version
+        # TODO: We could read the version from summary.json...
+        _rez_version,
     ))
 
     destpath = os.path.join(artifacts_dir, destdir)

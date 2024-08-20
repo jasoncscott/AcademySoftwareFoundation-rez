@@ -7,11 +7,10 @@ Release a new version of rez.
 
 Read RELEASE.md before using this utility.
 """
-from __future__ import print_function
 import argparse
 import os
 from datetime import date
-from pipes import quote
+from shlex import quote
 import subprocess
 import sys
 
@@ -107,11 +106,11 @@ def parse_topmost_changelog():
     assert False
 
 
-def check_on_master():
+def check_on_main():
     branch = run_command("git", "branch", "--contains").split()[-1]
 
-    if branch != "master":
-        sys.stderr.write("Must be run from master.\n")
+    if branch != "main":
+        sys.stderr.write("Must be run from the 'main' branch.\n")
         sys.exit(1)
 
 
@@ -269,7 +268,7 @@ if __name__ == "__main__":
     def doit(step):
         return (opts.step is None) or (step == opts.step)
 
-    check_on_master()
+    check_on_main()
 
     if doit("push"):
         push_codebase()

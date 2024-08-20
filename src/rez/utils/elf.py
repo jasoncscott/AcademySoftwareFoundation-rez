@@ -6,10 +6,11 @@
 Functions that wrap readelf/patchelf utils on linux.
 """
 import os
-import pipes
+from shlex import quote
 import subprocess
 
 from rez.utils.filesystem import make_path_writable
+from rez.utils.execution import Popen
 
 
 def get_rpaths(elfpath):
@@ -54,17 +55,18 @@ def patch_rpaths(elfpath, rpaths):
 
 
 def _run(*nargs, **popen_kwargs):
-    proc = subprocess.Popen(
+    proc = Popen(
         nargs,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        text=True,
         **popen_kwargs
     )
 
     out, err = proc.communicate()
 
     if proc.returncode:
-        cmd_ = ' '.join(pipes.quote(x) for x in nargs)
+        cmd_ = ' '.join(quote(x) for x in nargs)
 
         raise RuntimeError(
             "Command %s - failed with exitcode %d: %s"

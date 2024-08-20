@@ -2,22 +2,16 @@
 # Copyright Contributors to the Rez Project
 
 
-from __future__ import print_function
-
 from rez.config import config
 from rez.vendor.memcache.memcache import Client as Client_, \
     SERVER_MAX_KEY_LENGTH, __version__ as memcache_client_version
-from rez.utils import py23
+from rez.util import get_function_arg_names
 from threading import local
 from contextlib import contextmanager
 from functools import update_wrapper
 from inspect import isgeneratorfunction
 from hashlib import md5
 from uuid import uuid4
-from rez.vendor.six import six
-
-
-basestring = six.string_types[0]
 
 
 # this version should be changed if and when the caching interface changes
@@ -33,9 +27,8 @@ class Client(object):
     - ability to cache None.
     """
     class _Miss(object):
-        def __nonzero__(self):
+        def __bool__(self):
             return False
-        __bool__ = __nonzero__  # py3 compat
 
     miss = _Miss()
 
@@ -50,16 +43,14 @@ class Client(object):
                 debugging - run 'memcached -vv' in the foreground to see the keys
                 being get/set/stored.
         """
-        self.servers = [servers] if isinstance(servers, basestring) else servers
+        self.servers = [servers] if isinstance(servers, str) else servers
         self.key_hasher = self._debug_key_hash if debug else self._key_hash
         self._client = None
         self.debug = debug
         self.current = ''
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.servers)
-
-    __bool__ = __nonzero__  # py3 compat
 
     @property
     def client(self):
@@ -283,7 +274,9 @@ def memcached(servers, key=None, from_cache=None, to_cache=None, time=0,
     being returned. If you do not want a result to be cached, wrap the return
     value of your function in a `DoNotCache` object.
 
-    Example:
+    Examples:
+
+    .. code-block:: python
 
         @memcached('127.0.0.1:11211')
         def _listdir(path):
@@ -300,11 +293,11 @@ def memcached(servers, key=None, from_cache=None, to_cache=None, time=0,
     Args:
         servers (str or list of str): memcached server uri(s), eg '127.0.0.1:11211'.
             This arg can be None also, in which case memcaching is disabled.
-        key (callable, optional): Function that, given the target function's args,
+        key (typing.Optional[typing.Callable]): Function that, given the target function's args,
             returns the string key to use in memcached.
-        from_cache (callable, optional): If provided, and a cache hit occurs, the
+        from_cache (typing.Optional[typing.Callable]): If provided, and a cache hit occurs, the
             cached value will be translated by this function before being returned.
-        to_cache (callable, optional): If provided, and a cache miss occurs, the
+        to_cache (typing.Optional[typing.Callable]): If provided, and a cache miss occurs, the
             function's return value will be translated by this function before
             being cached.
         time (int): Tells memcached the time which this value should expire, either
@@ -325,7 +318,7 @@ def memcached(servers, key=None, from_cache=None, to_cache=None, time=0,
     """
     def default_key(func, *nargs, **kwargs):
         parts = [func.__module__]
-        argnames = py23.get_function_arg_names(func)
+        argnames = get_function_arg_names(func)
 
         if argnames:
             if argnames[0] == "cls":

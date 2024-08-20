@@ -2,15 +2,15 @@
 # Copyright Contributors to the Rez Project
 
 
-from __future__ import print_function
-
 import os
 import sys
 import re
 import traceback
 from fnmatch import fnmatch
+from enum import Enum
 from contextlib import contextmanager
 from string import Formatter
+from collections.abc import MutableMapping
 
 from rez.system import system
 from rez.config import config
@@ -23,17 +23,6 @@ from rez.utils.sourcecode import SourceCode, SourceCodeError
 from rez.utils.data_utils import AttrDictWrapper
 from rez.utils.formatting import expandvars
 from rez.utils.platform_ import platform_
-from rez.vendor.enum import Enum
-from rez.vendor.six import six
-
-
-basestring = six.string_types[0]
-
-# http://python3porting.com/problems.html#replacing-userdict
-if six.PY2:
-    from UserDict import DictMixin
-else:
-    from collections.abc import MutableMapping as DictMixin
 
 
 #===============================================================================
@@ -245,7 +234,7 @@ class ActionManager(object):
         # It would be unexpected to get var expansion on the str repr of an
         # object, so don't do that.
         #
-        if not isinstance(value, (basestring, EscapedString)):
+        if not isinstance(value, (str, EscapedString)):
             return str(value)
 
         # Perform expansion on non-literal parts of the string. If any
@@ -703,7 +692,7 @@ class Python(ActionInterpreter):
             self.target_environ.update(self.manager.environ)
         self.adjust_env_for_platform(self.target_environ)
 
-        shell_mode = isinstance(args, basestring)
+        shell_mode = isinstance(args, str)
         return Popen(args,
                      shell=shell_mode,
                      env=self.target_environ,
@@ -870,7 +859,7 @@ class EscapedString(object):
         return "%s(%r)" % (self.__class__.__name__, self.strings)
 
     def __eq__(self, other):
-        if isinstance(other, basestring):
+        if isinstance(other, str):
             return (str(self) == str(other))
         else:
             return (
@@ -906,7 +895,7 @@ class EscapedString(object):
         """Return the string with non-literal parts formatted.
 
         Args:
-            func (callable): Callable that translates a string into a
+            func (typing.Callable): Callable that translates a string into a
                 formatted string.
 
         Returns:
@@ -1092,7 +1081,7 @@ class NamespaceFormatter(Formatter):
 # Environment Classes
 #===============================================================================
 
-class EnvironmentDict(DictMixin):
+class EnvironmentDict(MutableMapping):
     """
     Provides a mapping interface to `EnvironmentVariable` instances,
     which provide an object-oriented interface for recording environment
@@ -1191,13 +1180,11 @@ class EnvironmentVariable(object):
         return '%s(%r, %r)' % (self.__class__.__name__, self._name,
                                self.value())
 
-    def __nonzero__(self):
+    def __bool__(self):
         try:
             return bool(self.value())
         except RexUndefinedVariableError:
             return False
-
-    __bool__ = __nonzero__  # py3 compat
 
     def __eq__(self, value):
         if isinstance(value, EnvironmentVariable):
@@ -1412,25 +1399,18 @@ class RexExecutor(object):
 
         return pyc
 
-    def execute_code(self, code, filename=None, isolate=False):
+    def execute_code(self, code, filename=None):
         """Execute code within the execution context.
 
         Args:
             code (str or SourceCode): Rex code to execute.
             filename (str): Filename to report if there are syntax errors.
-            isolate (bool): If True, do not affect `self.globals` by executing
-                this code. DEPRECATED - use `self.reset_globals` instead.
         """
-        def _apply():
-            self.compile_code(code=code,
-                              filename=filename,
-                              exec_namespace=self.globals)
-
-        if isolate:
-            with self.reset_globals():
-                _apply()
-        else:
-            _apply()
+        self.compile_code(
+            code=code,
+            filename=filename,
+            exec_namespace=self.globals
+        )
 
     def execute_function(self, func, *nargs, **kwargs):
         """

@@ -14,17 +14,13 @@ from rez.utils.formatting import StringFormatMixin, StringFormatType
 from rez.utils.schema import schema_keys
 from rez.utils.resources import ResourceHandle, ResourceWrapper
 from rez.exceptions import PackageFamilyNotFoundError, ResourceError
-from rez.vendor.version.version import Version, VersionRange
-from rez.vendor.version.requirement import VersionedObject
-from rez.vendor.six import six
+from rez.version import Version, VersionRange
+from rez.version import VersionedObject
 from rez.serialise import FileFormat
 from rez.config import config
 
 import os
 import sys
-
-
-basestring = six.string_types[0]
 
 # ------------------------------------------------------------------------------
 # package-related classes
@@ -117,7 +113,7 @@ class PackageBaseResourceWrapper(PackageRepositoryResourceWrapper):
         """Print the contents of the package.
 
         Args:
-            buf (file-like object): Stream to write to.
+            buf (typing.IO): Stream to write to.
             format_ (`FileFormat`): Format to write in.
             skip_attributes (list of str): List of attributes to not print.
             include_release (bool): If True, include release-related attributes,
@@ -190,16 +186,18 @@ class PackageBaseResourceWrapper(PackageRepositoryResourceWrapper):
 class Package(PackageBaseResourceWrapper):
     """A package.
 
-    Note:
+    Warning:
         Do not instantiate this class directly, instead use the function
-        `iter_packages` or `PackageFamily.iter_packages`.
+        :func:`iter_packages` or :meth:`PackageFamily.iter_packages`.
     """
     keys = schema_keys(package_schema)
 
-    # This is to allow for a simple check like 'this.is_package' in late-bound
-    # funcs, where 'this' may be a package or variant.
-    #
+    #: Allows for a simple check like ``this.is_package`` in late-bound
+    #: funcs, where ``this`` may be a package or variant.
     is_package = True
+
+    #: Allows for a simple check like ``this.is_variant`` in late-bound
+    #: funcs, where ``this`` may be a package or variant.
     is_variant = False
 
     def __init__(self, resource, context=None):
@@ -326,15 +324,17 @@ class Package(PackageBaseResourceWrapper):
 class Variant(PackageBaseResourceWrapper):
     """A package variant.
 
-    Note:
+    Warning:
         Do not instantiate this class directly, instead use the function
-        `Package.iter_variants`.
+        :meth:`Package.iter_variants`.
     """
     keys = schema_keys(variant_schema)
     keys.update(["index", "root", "subpath"])
 
-    # See comment in `Package`
+    #: See :attr:`Package.is_package`.
     is_package = False
+
+    #: See :attr:`Package.is_variant`.
     is_variant = True
 
     def __init__(self, resource, context=None, parent=None):
@@ -526,7 +526,7 @@ def iter_package_families(paths=None):
     families.
 
     Args:
-        paths (list of str, optional): paths to search for package families,
+        paths (typing.Optional[list[str]]): paths to search for package families,
             defaults to `config.packages_path`.
 
     Returns:
@@ -549,7 +549,7 @@ def iter_packages(name, range_=None, paths=None):
         name (str): Name of the package, eg 'maya'.
         range_ (VersionRange or str): If provided, limits the versions returned
             to those in `range_`.
-        paths (list of str, optional): paths to search for packages, defaults
+        paths (typing.Optional[list[str]]): paths to search for packages, defaults
             to `config.packages_path`.
 
     Returns:
@@ -566,7 +566,7 @@ def iter_packages(name, range_=None, paths=None):
 
             seen.add(key)
             if range_:
-                if isinstance(range_, basestring):
+                if isinstance(range_, str):
                     range_ = VersionRange(range_)
                 if package_resource.version not in range_:
                     continue
@@ -580,13 +580,13 @@ def get_package(name, version, paths=None):
     Args:
         name (str): Name of the package, eg 'maya'.
         version (Version or str): Version of the package, eg '1.0.0'
-        paths (list of str, optional): paths to search for package, defaults
+        paths (typing.Optional[list[str]]): paths to search for package, defaults
             to `config.packages_path`.
 
     Returns:
         `Package` object, or None if the package was not found.
     """
-    if isinstance(version, basestring):
+    if isinstance(version, str):
         range_ = VersionRange("==%s" % version)
     else:
         range_ = VersionRange.from_version(version, "==")
@@ -628,7 +628,7 @@ def get_package_from_repository(name, version, path):
     """
     repo = package_repository_manager.get_repository(path)
 
-    if isinstance(version, basestring):
+    if isinstance(version, str):
         version = Version(version)
 
     package_resource = repo.get_package(name, version)
@@ -661,7 +661,7 @@ def get_package_from_string(txt, paths=None):
 
     Args:
         txt (str): String such as 'foo', 'bah-1.3'.
-        paths (list of str, optional): paths to search for package, defaults
+        paths (typing.Optional[list[str]]): paths to search for package, defaults
             to `config.packages_path`.
 
     Returns:
@@ -910,7 +910,7 @@ def get_latest_package(name, range_=None, paths=None, error=False):
     Args:
         name (str): Package name.
         range_ (`VersionRange`): Version range to search within.
-        paths (list of str, optional): paths to search for package families,
+        paths (typing.Optional[list[str]]): paths to search for package families,
             defaults to `config.packages_path`.
         error (bool): If True, raise an error if no package is found.
 
@@ -933,7 +933,7 @@ def get_latest_package_from_string(txt, paths=None, error=False):
 
     Args:
         txt (str): Request, eg 'foo-1.2+'
-        paths (list of str, optional): paths to search for packages, defaults
+        paths (typing.Optional[list[str]]): paths to search for packages, defaults
             to `config.packages_path`.
         error (bool): If True, raise an error if no package is found.
 

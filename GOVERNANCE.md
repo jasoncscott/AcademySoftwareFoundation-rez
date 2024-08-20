@@ -105,11 +105,17 @@ from other TSC members on a short or long-term basis.
 Members of the TSC contribute to rez independent of their employer and
 their employer is listed purely for transparency purposes.
 
-* Allan Johns (chair, author) - NVIDIA
 * Brendan Abel - Walt Disney Imagineering
-* Jean-Christophe Morin - Signiant
-* Stephen Mackenzie - NVIDIA
+* Jean-Christophe Morin (co-chair) - Anaconda
+* Stephen Mackenzie (co-chair) - NVIDIA
 * Thorsten Kaufmann - Accenture Song Content
+
+Changes to employment should be updated promply and will require a pull request.
+Such pull requests do not require an approval from all members.
+
+### Former TSC Members
+
+* Allan Johns (author and initial chair)
 
 ### TSC Meetings
 

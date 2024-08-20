@@ -6,25 +6,23 @@ from rez.packages import iter_packages
 from rez.exceptions import ConfigurationError
 from rez.config import config
 from rez.utils.data_utils import cached_property, cached_class_property
-from rez.vendor.six import six
-from rez.vendor.version.requirement import VersionedObject, Requirement
+from rez.version import VersionedObject, Requirement
 from hashlib import sha1
 import fnmatch
 import re
 
 
-basestring = six.string_types[0]
-
-
 class PackageFilterBase(object):
+    """Base class for package filters."""
+
     def excludes(self, package):
         """Determine if the filter excludes the given package.
 
         Args:
-            package (`Package`): Package to filter.
+            package (Package): Package to filter.
 
         Returns:
-            `Rule` object that excludes the package, or None if the package was
+            typing.Optional[Rule]: Rule object that excludes the package, or None if the package was
             not excluded.
         """
         raise NotImplementedError
@@ -33,7 +31,7 @@ class PackageFilterBase(object):
         """Add an exclusion rule.
 
         Args:
-            rule (`Rule`): Rule to exclude on.
+            rule (Rule): Rule to exclude on.
         """
         raise NotImplementedError
 
@@ -41,7 +39,7 @@ class PackageFilterBase(object):
         """Add an inclusion rule.
 
         Args:
-            rule (`Rule`): Rule to include on.
+            rule (Rule): Rule to include on.
         """
         raise NotImplementedError
 
@@ -51,21 +49,25 @@ class PackageFilterBase(object):
         raise NotImplementedError
 
     def to_pod(self):
-        """Convert to POD type, suitable for storing in an rxt file."""
+        """Convert to POD type, suitable for storing in an rxt file.
+
+        Returns:
+            dict[str, list[str]]:
+        """
         raise NotImplementedError
 
     def iter_packages(self, name, range_=None, paths=None):
-        """Same as iter_packages in packages.py, but also applies this filter.
+        """Same as :func:`~rez.packages.iter_packages`, but also applies this filter.
 
         Args:
             name (str): Name of the package, eg 'maya'.
             range_ (VersionRange or str): If provided, limits the versions returned
-                to those in `range_`.
-            paths (list of str, optional): paths to search for packages, defaults
-                to `config.packages_path`.
+                to those in ``range_``.
+            paths (typing.Optional[list[str]]): paths to search for packages, defaults
+                to :data:`packages_path`.
 
         Returns:
-            `Package` iterator.
+            typing.Iterator[Package]: iterator
         """
         for package in iter_packages(name, range_, paths):
             if not self.excludes(package):
@@ -73,6 +75,12 @@ class PackageFilterBase(object):
 
     @property
     def sha1(self):
+        """
+        SHA1 representation
+
+        Returns:
+            str:
+        """
         return sha1(str(self).encode("utf-8")).hexdigest()
 
     def __repr__(self):
@@ -80,16 +88,15 @@ class PackageFilterBase(object):
 
 
 class PackageFilter(PackageFilterBase):
-    """A package filter.
-
+    """
     A package filter is a set of rules that hides some packages but leaves others
     visible. For example, a package filter might be used to hide all packages
-    whos version ends in the string '.beta'. A package filter might also be used
+    whos version ends in the string ``.beta``. A package filter might also be used
     simply to act as a blacklist, hiding some specific packages that are known
     to be problematic.
 
     Rules can be added as 'exclusion' or 'inclusion' rules. A package is only
-    excluded iff it matches one or more exclusion rules, and does not match any
+    excluded if it matches one or more exclusion rules, and does not match any
     inclusion rules.
     """
     def __init__(self):
@@ -150,10 +157,8 @@ class PackageFilter(PackageFilterBase):
             result.add_inclusion(rule)
         return result
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self._excludes)
-
-    __bool__ = __nonzero__  # py3 compat
 
     @cached_property
     def cost(self):
@@ -175,11 +180,16 @@ class PackageFilter(PackageFilterBase):
 
     @classmethod
     def from_pod(cls, data):
+        """Convert from POD types to equivalent package filter.
+
+        Returns:
+            PackageFilter:
+        """
         f = PackageFilter()
         for namespace, func in (("excludes", f.add_exclusion),
                                 ("includes", f.add_inclusion)):
             rule_strs = data.get(namespace, [])
-            if isinstance(rule_strs, basestring):
+            if isinstance(rule_strs, str):
                 rule_strs = [rule_strs]
             for rule_str in rule_strs:
                 rule = Rule.parse_rule(rule_str)
@@ -243,6 +253,8 @@ class PackageFilterList(PackageFilterBase):
 
     def add_inclusion(self, rule):
         """
+        See also: :meth:`PackageFilterBase.add_inclusion`
+
         Note:
             Adding an inclusion to a filter list applies that inclusion across
             all filters.
@@ -251,6 +263,11 @@ class PackageFilterList(PackageFilterBase):
             f.add_inclusion(rule)
 
     def excludes(self, package):
+        """Returns the first rule that exlcudes ``package``, if any.
+
+        Returns:
+            Rule:
+        """
         for f in self.filters:
             rule = f.excludes(package)
             if rule:
@@ -268,6 +285,11 @@ class PackageFilterList(PackageFilterBase):
 
     @classmethod
     def from_pod(cls, data):
+        """Convert from POD types to equivalent package filter.
+
+        Returns:
+            PackageFilterList:
+        """
         flist = PackageFilterList()
         for dict_ in data:
             f = PackageFilter.from_pod(dict_)
@@ -280,10 +302,8 @@ class PackageFilterList(PackageFilterBase):
             data.append(f.to_pod())
         return data
 
-    def __nonzero__(self):
+    def __bool__(self):
         return any(self.filters)
-
-    __bool__ = __nonzero__  # py3 compat
 
     def __str__(self):
         filters = sorted(self.filters, key=lambda x: (x.cost, str(x)))
@@ -291,23 +311,29 @@ class PackageFilterList(PackageFilterBase):
 
     @cached_class_property
     def singleton(cls):
-        """Filter list as configured by rezconfig.package_filter."""
+        """Filter list as configured by :data:`package_filter`.
+
+        Returns:
+            PackageFilterList:
+        """
         return cls.from_pod(config.package_filter)
 
 
-# filter that does not exclude any packages
+#: filter that does not exclude any packages
 no_filter = PackageFilterList()
 
 
 class Rule(object):
+    """Base package filter rule"""
+
+    #: Rule name
     name = None
 
-    """Relative cost of rule - cheaper rules are checked first."""
     def match(self, package):
         """Apply the rule to the package.
 
         Args:
-            package (`Package`): Package to filter.
+            package (Package): Package to filter.
 
         Returns:
             bool: True if the package matches the filter, False otherwise.
@@ -316,7 +342,11 @@ class Rule(object):
 
     def family(self):
         """Returns a package family string if this rule only applies to a given
-        package family, otherwise None."""
+        package family, otherwise None.
+
+        Returns:
+            str | None:
+        """
         return self._family
 
     def cost(self):
@@ -327,13 +357,13 @@ class Rule(object):
     def parse_rule(cls, txt):
         """Parse a rule from a string.
 
-        See rezconfig.package_filter for an overview of valid strings.
+        See :data:`package_filter` for an overview of valid strings.
 
         Args:
             txt (str): String to parse.
 
         Returns:
-            `Rule` instance.
+            Rule:
         """
         types = {"glob": GlobRule,
                  "regex": RegexRule,
@@ -414,7 +444,7 @@ class RegexRuleBase(Rule):
 class RegexRule(RegexRuleBase):
     """A rule that matches a package if its qualified name matches a regex string.
 
-    For example, the package 'foo-1.beta' would match the regex rule '.*\\.beta$'.
+    For example, the package ``foo-1.beta`` would match the regex rule ``.*\\.beta$``.
     """
     name = "regex"
 
@@ -422,7 +452,7 @@ class RegexRule(RegexRuleBase):
         """Create a regex rule.
 
         Args:
-            s (str): Regex pattern. Eg '.*\\.beta$'.
+            s (str): Regex pattern. Eg ``.*\\.beta$``.
         """
         self.txt = s
         self._family = self._extract_family(s)
@@ -432,7 +462,7 @@ class RegexRule(RegexRuleBase):
 class GlobRule(RegexRuleBase):
     """A rule that matches a package if its qualified name matches a glob string.
 
-    For example, the package 'foo-1.2' would match the glob rule 'foo-*'.
+    For example, the package ``foo-1.2`` would match the glob rule ``foo-*``.
     """
     name = "glob"
 
@@ -440,7 +470,7 @@ class GlobRule(RegexRuleBase):
         """Create a glob rule.
 
         Args:
-            s (str): Glob pattern. Eg 'foo.*', '*.beta'.
+            s (str): Glob pattern. Eg ``foo.*``, ``*.beta``.
         """
         self.txt = s
         self._family = self._extract_family(s)
@@ -451,7 +481,7 @@ class RangeRule(Rule):
     """A rule that matches a package if that package does not conflict with a
     given requirement.
 
-    For example, the package 'foo-1.2' would match the requirement rule 'foo<10'.
+    For example, the package ``foo-1.2`` would match the requirement rule ``foo<10``.
     """
     name = "range"
 
@@ -480,13 +510,13 @@ class TimestampRule(Rule):
     given timestamp.
 
     Note:
-        The 'timestamp' argument used for resolves is ANDed with any package
-        filters - providing a filter containing timestamp rules does not override
-        the value of 'timestamp'.
+        The ``timestamp`` argument used for resolves is ANDed with any package
+        filters. Providing a filter containing timestamp rules does not override
+        the value of ``timestamp``.
 
-    Note:
-        Do NOT use a timestamp rule to mimic what the 'timestamp' resolve argument
-        does. 'timestamp' is treated differently - the memcache caching system
+    Warning:
+        Do NOT use a timestamp rule to mimic what the ``timestamp`` resolve argument
+        does. ``timestamp`` is treated differently - the memcache caching system
         is aware of it, so timestamped resolves get cached. Non-timestamped
         resolves also get cached, but their cache entries are invalidated more
         often (when new packages are released).

@@ -7,18 +7,11 @@ Utilities related to managing data types.
 """
 import os.path
 import json
+import functools
+from collections.abc import MutableMapping
 
 from rez.vendor.schema.schema import Schema, Optional
 from threading import Lock
-from rez.vendor.six import six
-
-if six.PY2:
-    from collections import MutableMapping
-else:
-    from collections.abc import MutableMapping
-
-
-basestring = six.string_types[0]
 
 
 class ModifyList(object):
@@ -49,8 +42,8 @@ class DelayLoad(object):
 
     Supported formats:
 
-        - yaml (*.yaml, *.yml)
-        - json (*.json)
+    - yaml (``*.yaml``, ``*.yml``)
+    - json (``*.json``)
     """
     def __init__(self, filepath):
         self.filepath = os.path.expanduser(filepath)
@@ -167,7 +160,7 @@ def get_dict_diff(d1, d2):
     was affected.
 
     Returns:
-        3-tuple:
+        tuple: 3-tuple:
         - list of added keys;
         - list of removed key;
         - list of changed keys.
@@ -240,6 +233,8 @@ class cached_property(object):
     """
     def __init__(self, func, name=None):
         self.func = func
+        # Make sure that Sphinx autodoc can follow and get the docstring from our wrapped function.
+        functools.update_wrapper(self, func)
         self.name = name or func.__name__
 
     def __get__(self, instance, owner=None):
@@ -253,6 +248,10 @@ class cached_property(object):
             raise AttributeError("can't set attribute %r on %r"
                                  % (self.name, instance))
         return result
+
+    # This is to silence Sphinx that complains that cached_property is not a callable.
+    def __call__(self):
+        raise RuntimeError("@cached_property should not be called.")
 
     @classmethod
     def uncache(cls, instance, name):
@@ -279,6 +278,9 @@ class cached_class_property(object):
     """
     def __init__(self, func, name=None):
         self.func = func
+        # Make sure that Sphinx autodoc can follow and get the docstring from our wrapped function.
+        # TODO: Doesn't work...
+        functools.update_wrapper(self, func)
 
     def __get__(self, instance, owner=None):
         assert owner
@@ -445,7 +447,7 @@ def get_object_completions(instance, prefix, types=None, instance_types=None):
     attrs = dir(instance)
     try:
         for attr in instance:
-            if isinstance(attr, basestring):
+            if isinstance(attr, str):
                 attrs.append(attr)
     except TypeError:
         pass
@@ -511,14 +513,12 @@ class AttributeForwardMeta(type):
 
     Example:
 
-        >>> import six
-        >>>
         >>> class Foo(object):
         >>>     def __init__(self):
         >>>         self.a = "a_from_foo"
         >>>         self.b = "b_from_foo"
         >>>
-        >>> class Bah(six.with_metaclass(AttributeForwardMeta, object)):
+        >>> class Bah(object, metaclass=AttributeForwardMeta):
         >>>     keys = ["a", "b", "c"]
         >>>
         >>>     @property
@@ -600,7 +600,7 @@ class LazyAttributeMeta(type):
                 optional = isinstance(key, Optional)
                 while isinstance(key, Schema):
                     key = key._schema
-                if isinstance(key, basestring):
+                if isinstance(key, str):
                     keys.add(key)
 
                     if _defined(key):

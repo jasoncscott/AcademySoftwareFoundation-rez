@@ -3,78 +3,105 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'install.py'
+      - 'setup.py'
+      - 'MANIFEST.in'
+      - 'pyproject.toml'
       - '.github/workflows/installation.yaml'
       - '!src/rez/utils/_version.py'
       - '!**.md'
   push:  
     paths:
       - 'src/**'
+      - 'install.py'
+      - 'setup.py'
+      - 'MANIFEST.in'
+      - 'pyproject.toml'
       - '.github/workflows/installation.yaml'
       - '!src/rez/utils/_version.py'
       - '!**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   main:
     name: ${{ matrix.os }} - ${{ matrix.python-version }} - ${{ matrix.method }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: 
-          - ubuntu-latest
-          - macOS-latest
-          - windows-2019
-        python-version:
-          - '2.7'
-          - '3.7'
-        method:
-          - 'install'
-          - 'pip'
+        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+        method: ['install' ,'pip']
 
         include:
         # ubuntu
         - os: ubuntu-latest
-          method: install          
+          method: install
           REZ_SET_PATH_COMMAND: 'export PATH=${PATH}:/opt/rez/bin/rez'
-          REZ_INSTALL_COMMAND: 'python ./install.py /opt/rez'
+          REZ_INSTALL_COMMAND: python ./install.py /opt/rez
         - os: ubuntu-latest
           method: pip
           REZ_SET_PATH_COMMAND: 'export PATH=${PATH}:/opt/rez/bin PYTHONPATH=${PYTHONPATH}:/opt/rez'
-          REZ_INSTALL_COMMAND: 'pip install --target /opt/rez .'
+          REZ_INSTALL_COMMAND: pip install --target /opt/rez .
         # macOS
-        - os: macOS-latest
+        - os: macos-latest
           method: install
           REZ_SET_PATH_COMMAND: 'export PATH=${PATH}:~/rez/bin/rez'
-          REZ_INSTALL_COMMAND: 'python ./install.py ~/rez'
-        - os: macOS-latest
+          REZ_INSTALL_COMMAND: python ./install.py ~/rez
+        - os: macos-latest
           method: pip
           REZ_SET_PATH_COMMAND: 'export PATH="$PATH:~/rez/bin" PYTHONPATH=$PYTHONPATH:$HOME/rez'
-          REZ_INSTALL_COMMAND: 'pip install --target ~/rez .'
+          REZ_INSTALL_COMMAND: pip install --target ~/rez .
+        # macOS
+        # Python 3.7 is not supported on Apple Silicon.
+        # macos-13 is the last macos runner image to run on Intel CPUs.
+        - os: macos-13
+          python-version: '3.7'
+          method: install
+          REZ_SET_PATH_COMMAND: 'export PATH=${PATH}:~/rez/bin/rez'
+          REZ_INSTALL_COMMAND: python ./install.py ~/rez
+        - os: macos-13
+          python-version: '3.7'
+          method: pip
+          REZ_SET_PATH_COMMAND: 'export PATH="$PATH:~/rez/bin" PYTHONPATH=$PYTHONPATH:$HOME/rez'
+          REZ_INSTALL_COMMAND: pip install --target ~/rez .
         # windows
-        - os: windows-2019
+        - os: windows-latest
           method: install
           REZ_SET_PATH_COMMAND: '$env:PATH="$env:PATH;C:\ProgramData\rez\Scripts\rez"'
-          REZ_INSTALL_COMMAND: 'python ./install.py C:\ProgramData\rez'
-        - os: windows-2019
+          REZ_INSTALL_COMMAND: python ./install.py C:\ProgramData\rez
+        - os: windows-latest
           method: pip
           REZ_SET_PATH_COMMAND: '[System.Environment]::SetEnvironmentVariable("PATH","$env:PATH;C:\ProgramData\rez\bin"); $env:PYTHONPATH="$env:PYTHONPATH;C:\ProgramData\rez"'
-          REZ_INSTALL_COMMAND: 'pip install --target C:\ProgramData\rez .'
-    
+          REZ_INSTALL_COMMAND: pip install --target C:\ProgramData\rez .
+
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    - name: Setup python ${{ matrix.python-version }}
+      uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Install
+      env:
+        MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
       run: |
         ${{ matrix.REZ_INSTALL_COMMAND }}
 
     - name: Run rez-status
+      env:
+        MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
       run: |
         ${{ matrix.REZ_SET_PATH_COMMAND }}
         rez-status
 
     - name: Install rez with rez-pip
+      env:
+        MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
       run: |
         ${{ matrix.REZ_SET_PATH_COMMAND }}
         rez-pip --install .

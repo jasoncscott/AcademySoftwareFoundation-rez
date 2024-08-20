@@ -1,4 +1,264 @@
-# Change Log
+# Change log
+
+<!-- start-here-sphinx-start-after -->
+
+## 3.1.1 (2024-04-14)
+[Source](https://github.com/AcademySoftwareFoundation/rez/tree/3.1.1) | [Diff](https://github.com/AcademySoftwareFoundation/rez/compare/3.1.0...3.1.1)
+
+### Fixes
+
+- Add symlink locking for filesystems that do not support hardlinks [\#1708](https://github.com/AcademySoftwareFoundation/rez/pull/1708) ([cfxegbert](https://github.com/cfxegbert))
+- Fix error caused by weakly referenced package not specifying version ▒ [\#1712](https://github.com/AcademySoftwareFoundation/rez/pull/1712) ([loonghao](https://github.com/loonghao))
+
+### Documentation
+
+- Add plugin documentation page [\#1703](https://github.com/AcademySoftwareFoundation/rez/pull/1703) ([BryceGattis](https://github.com/BryceGattis))
+- Make gh-rez external link dynamic [\#1707](https://github.com/AcademySoftwareFoundation/rez/pull/1707) ([BryceGattis](https://github.com/BryceGattis))
+
+### Miscellaneous
+
+- Convert all plugin rezconfig to rezconfig.py [\#1692](https://github.com/AcademySoftwareFoundation/rez/pull/1692) ([brycegbrazen](https://github.com/brycegbrazen))
+
+
+## 3.1.0 (2024-03-30)
+[Source](https://github.com/AcademySoftwareFoundation/rez/tree/3.1.0) | [Diff](https://github.com/AcademySoftwareFoundation/rez/compare/3.3.0...3.1.0)
+
+### Features
+
+- Add support for `virtualenv` in the installer [\#1645](https://github.com/AcademySoftwareFoundation/rez/pull/1645) ([@Pixel-Minions](https://github.com/Pixel-Minions))
+- Add `-e/--editable` flag to the installer to create an editable install [\#1672](https://github.com/AcademySoftwareFoundation/rez/pull/1672) ([@JeanChristopheMorinPerso](https://github.com/JeanChristopheMorinPerso))
+
+### Fixes
+
+- Add retry mechanism when renaming folders on Windows [\#1666](https://github.com/AcademySoftwareFoundation/rez/pull/1666) ([@loonghao](https://github.com/loonghao))
+- Apply package orderers on variants [\#1684](https://github.com/AcademySoftwareFoundation/rez/pull/1684) ([@isohedronpipeline](https://github.com/isohedronpipeline) and [@pmolodo](https://github.com/pmolodo))
+
+### Documentation
+
+- Remove the note about Python 2.7 compatibility from the docs [\#1644](https://github.com/AcademySoftwareFoundation/rez/pull/1644) ([@vergeev](https://github.com/vergeev))
+- Add clear information on how to contact maintainers [\#1659](https://github.com/AcademySoftwareFoundation/rez/pull/1659) ([@JeanChristopheMorinPerso](https://github.com/JeanChristopheMorinPerso))
+- Installation instructions now include how to download rez [\#1660](https://github.com/AcademySoftwareFoundation/rez/pull/1660) ([@JeanChristopheMorinPerso](https://github.com/JeanChristopheMorinPerso))
+- Add development environment docs to [CONTRIBUTING.md](./CONTRIBUTING.md) [\#1633](https://github.com/AcademySoftwareFoundation/rez/pull/1633) ([@BryceGattis](https://github.com/BryceGattis))
+- Improve clarity and expliciteness of `rez-env --command` flag help [\#1682](https://github.com/AcademySoftwareFoundation/rez/pull/1682) ([@BryceGattis](https://github.com/BryceGattis))
+- Add releasing packages documentation [\#1689](https://github.com/AcademySoftwareFoundation/rez/pull/1689) ([@BryceGattis](https://github.com/BryceGattis))
+- Improve clarify of early binding functions documentation [\#1677](https://github.com/AcademySoftwareFoundation/rez/pull/1677) ([@BryceGattis](https://github.com/BryceGattis))
+
+### Miscellaneous
+
+- Remove Python2-related `__future__` imports [\#1640](https://github.com/AcademySoftwareFoundation/rez/pull/1640) ([@vergeev](https://github.com/vergeev))
+- Replace usages of `rez.vendor.enum` with the built-in enum module [\#1649](https://github.com/AcademySoftwareFoundation/rez/pull/1649) ([@predat](https://github.com/predat))
+- Remove `rez.backport` [\#1634](https://github.com/AcademySoftwareFoundation/rez/pull/1634) ([@BryceGattis](https://github.com/BryceGattis))
+- Remove `rez.utils.json` [\#1673](https://github.com/AcademySoftwareFoundation/rez/pull/1673) ([@BryceGattis](https://github.com/BryceGattis))
+- Remove `rez.utils.py23` and cleanup more python 2.7 leftovers [\#1678](https://github.com/AcademySoftwareFoundation/rez/pull/1678) ([@wandth](https://github.com/wandth))
+
+## 3.0.0 (2024-02-08)
+[Source](https://github.com/AcademySoftwareFoundation/rez/tree/3.0.0) | [Diff](https://github.com/AcademySoftwareFoundation/rez/compare/2.114.1...3.0.0)
+
+This release marks a big turning point for rez by completely dropping support for Python 2.
+In 2.114.0, it was still possible to install rez with Python 2 using pip. This functionality has
+now been removed. As of now, rez will support Python 3.7+. As of now, we test against 3.7, 3.8, 3.9,
+3.10 and 3.11.
+
+This was a tough decision to make considering that we still have users relying on Python 2, but
+it was becoming more and more complicated and time-consuming to maintain support for Python 2.
+
+Thank you to everyone who's put a lot of effort into supporting Python 2 for that long. Without
+you, it wouldn't have been possible.
+
+As part of the effort to remove support for Python 2, we also refreshed our CI a bit:
+- The GitHub Action workflows are now simplified and unified. We now have one workflow to
+  run all tests for all platforms instead of four.
+- We also got rid of the Windows containers. With these changes, our Windows tests are now
+  as fast as Linux and macOS tests, it's easier to see test results and we can also more
+  easily test all support python versions.
+- Running the tests directly on the GH hosted runners instead of containers,
+  we discovered some big flaws in how our tests were set up. These issues are now
+  fixed and our tests are now much more portable and don't rely on a centrally installed
+  Python or `PATHEXT` to be set. Big thanks to [@Dennis-Lehmann](https://github.com/Dennis-Lehmann)
+  and [@MrLixm](https://github.com/MrLixm) for helping us with debugging our Window tests!
+
+The CI refresh is not user-facing, but it took us a significant amount of effort
+and time to do and we hope that it will help increase the quality of rez and make
+for a better contributor experience. This is why we mention these in the release notes.
+
+### Features
+
+- It is now possible to configure the execution policy used when starting PowerShell (and pwsh) shells
+  by setting the `execution_policy` setting in the shell's config file. This should hopefully help to
+  smooth the transition from the cmd shell to powershell/pwsh.[\#1505](https://github.com/AcademySoftwareFoundation/rez/pull/1505) ([@herronelou](https://github.com/herronelou))
+- Built-in bind modules can now be overridden by adding your custom implementations to `bind_module_path`. [\#1557](https://github.com/AcademySoftwareFoundation/rez/pull/1557) ([@Pantsworth](https://github.com/Pantsworth))
+
+### Fixes
+
+- Fix infinite loop in the dot graph generation when `--fail-graph` is used and there are indirect cycles. [\#1620](https://github.com/AcademySoftwareFoundation/rez/pull/1620) ([@Pantsworth](https://github.com/Pantsworth))
+
+### Removed
+
+As communicated in the 2.114.0 release notes, we've followed through on the removal of certain things.
+
+- Python 2: It is now impossible to install and use rez with Python 2.
+
+- Modules
+  - `rez.vendor.version`: Use `rez.version` instead.
+  - `rez.build_process_`: Use `rez.build_process` instead.
+  - `rez.package_maker__`: Use `rez.package_maker` instead.
+  - `rez.package_resources_`: Use `rez.package_resources` instead.
+  - `rez.packages_`: Use `rez.packages` instead.
+
+- Configuration settings
+  - `rxt_as_yaml`: No replacement.
+  - `warn_commands2`: No replacement. This was a no-op.
+  - `error_commands2`: No replacement. This was a no-op.
+  - `rez_1_cmake_variables`: You can use the `REZ_BUILD_TYPE` CMake variable instead of `CENTRAL`.
+
+- CLI
+  - rez-pip: The `--pip-version` is removed.
+  - rez-search: The `--sort` is removed.
+
+- API
+  - The `isolate` keyword argument of the `rez.rex.RexExecutor.execute_code` method is now officially removed.
+    Instead of `executor.execute_code(..., isolate=True)`, use
+    ```python
+    with executor.reset_globals():
+        executor.execute_code(...)
+    ```
+
+- Build system:
+  - `CMAKE_ECLIPSE_GENERATE_SOURCE_PROJECT` and `_ECLIPSE_VERSION` were removed from the list of default variables passed to CMake. [\#1623](https://github.com/AcademySoftwareFoundation/rez/pull/1623) ([@JeanChristopheMorinPerso](https://github.com/JeanChristopheMorinPerso))
+  - rez will no longer print a custom error message if no build system is detected or set and an old "bez" `rezbuild.py` is detected. [\#1624](https://github.com/AcademySoftwareFoundation/rez/pull/1624) ([@JeanChristopheMorinPerso](https://github.com/JeanChristopheMorinPerso))
+
+### Changed
+
+Change of default values as announced in 2.114.0:
+
+- `rez_1_environment_variables`: Now disabled by default.
+- `disable_rez_1_compatibility`: Now enabled by default.
+
+New unannounced changes:
+
+- The default shell on Windows is now PowerShell unless you configure `default_shell`
+  to a different value. The previous default was `cmd` and was causing a lot of problems.
+
+### Docs
+
+The effort to improve and add content to our docs continues.
+
+* New documentation dedicated to [caching](https://rez.readthedocs.io/en/stable/caching.html).
+  This is only the beginning and only contains information on package payload caching and
+  memcached. We hope to add more content in the future. [\#1615](https://github.com/AcademySoftwareFoundation/rez/pull/1615) ([@brycegbrazen](https://github.com/brycegbrazen))
+- The note about SemVer in the [docs](https://rez.readthedocs.io/en/stable/basic_concepts.html#versions)
+  has been clarified. While we encourage SemVer like versioning, rez doesn't know
+  what SemVer is. This has been a source of confusion in the past. [\#1614](https://github.com/AcademySoftwareFoundation/rez/pull/1614) ([@brycegbrazen](https://github.com/brycegbrazen))
+
+## 2.114.1 (2023-12-09)
+[Source](https://github.com/AcademySoftwareFoundation/rez/tree/2.114.1) | [Diff](https://github.com/AcademySoftwareFoundation/rez/compare/2.114.0...2.114.1)
+
+**Merged pull requests:**
+
+- Fix exception when deprecated settings appear in a user config [\#1595](https://github.com/AcademySoftwareFoundation/rez/pull/1595) ([JeanChristopheMorinPerso](https://github.com/JeanChristopheMorinPerso))
+- Add cross reference for package_cache_during_build in docs [\#1598](https://github.com/AcademySoftwareFoundation/rez/pull/1598) ([brycegbrazen](https://github.com/brycegbrazen))
+
+## 2.114.0 (2023-11-23)
+[Source](https://github.com/AcademySoftwareFoundation/rez/tree/2.114.0) | [Diff](https://github.com/AcademySoftwareFoundation/rez/compare/2.113.0...2.114.0)
+
+Probably the last release before 3.0.0
+
+Rez installations now only support Python 3.7+. It is important to note that the API
+can still be used with Python 2.7+ but this will be dropped in 3.0.0
+
+### Features
+
+* New environment variable `REZ_LOG_DEPRECATION_WARNINGS` that will force
+  all deprecation warnings to be printed, ignoring `PYTHONWARNINGS` and custom
+  warning filters. Note that enabling this will forcefully load every
+  configuration file instead of loading them lazilly.
+* This PR adds a new config variable called `error_on_missing_variant_requires` that controls what happens when
+  a variant lists missing packages in its requirements.
+
+  By default, it is True and will continue the existing behaviour of erroring when it encounters
+  a variant with missing packages in its list of requirements. This means that if the first variant
+  encounters a missing package in its request, it will not continue even if the second variant can resolve.
+
+  If it is disabled, it will print to stderr, treat the current phase as failed and continue on to the next phase.
+  If all variants fail, it will be the same as if no variants could resolve.
+
+  This feature was added by [dgovil](https://github.com/dgovil) in [\#1550](https://github.com/AcademySoftwareFoundation/rez/pull/1550).
+
+### Deprecations
+
+We decided to deprecated some things that have been "deprecated" for a while but were never
+officially marked as deprecated. We have prepared
+[a guide](https://rez.readthedocs.io/en/stable/guides/prepare_for_3.html)
+to help you navigate these deprecations.
+
+What follows is everything that is marked as deprecated with information on when
+removal will happen or when defaults will change.
+
+- Configuration settings:
+  - [disable_rez_1_compatibility](https://rez.readthedocs.io/en/stable/configuring_rez.html#disable_rez_1_compatibility):
+    Will be removed in a yet to be determined future release.
+  - [debug_old_commands](https://rez.readthedocs.io/en/stable/configuring_rez.html#debug_old_commands):
+    Will be removed in 3.0.0. This setting is currently a no-op.
+  - [warn_old_commands](https://rez.readthedocs.io/en/stable/configuring_rez.html#warn_old_commands):
+    Will be removed in a yet to be determined future release.
+  - [error_old_commands](https://rez.readthedocs.io/en/stable/configuring_rez.html#error_old_commands):
+    Will be removed in a yet to be determined future release.
+  - [warn_commands2](https://rez.readthedocs.io/en/stable/configuring_rez.html#warn_commands2):
+    Will be removed in 3.0.0. This setting is currently a no-op.
+  - [error_commands2](https://rez.readthedocs.io/en/stable/configuring_rez.html#error_commands2):
+    Will be removed in 3.0.0. This setting is currently a no-op.
+  - [rez_1_cmake_variables](https://rez.readthedocs.io/en/stable/configuring_rez.html#rez_1_cmake_variables):
+    Will be removed in 3.0.0.
+  - [rez_1_environment_variables](https://rez.readthedocs.io/en/stable/configuring_rez.html#rez_1_environment_variables):
+    Will be removed in a yet to be determined future release.
+  - [rxt_as_yaml](https://rez.readthedocs.io/en/stable/configuring_rez.html#rxt_as_yaml):
+    Will be removed in 3.0.0.
+- Modules:
+  - `rez.vendor.version`. Use `rez.version` instead. Will be removed in 3.0.0.
+  - `rez.packages_maker__`. Use `rez.packages_maker` instead. Will be removed in 3.0.0.
+  - `rez.package_resources_`. Use `rez.package_resources` instead. Will be removed in 3.0.0.
+  - `rez.packages_`. Use `rez.packages` instead. Will be removed in 3.0.0.
+- CLI:
+  - rez-pip: The `--pip-version` argument is deprecated. Will be removed in 3.0.0.
+  - rez-search: The `--sort` argument is deprecated and has been a no-op for a while now. Will be removed in 3.0.0.
+- API:
+  - The `isolate` keyword argument of the `rez.rex.RexExecutor.execute_code` method is now officially deprecated and will be removed in 3.0.0.
+    Instead of `executor.execute_code(..., isolate=True)`, use
+    ```python
+    with executor.reset_globals():
+        executor.execute_code(...)
+    ```
+- Python: rez 3.0.0 will completely drop support for installing and using the rez API with Python 2.
+
+### Change of default values due to deprecations
+
+Some default values have changed:
+
+- [rez_1_cmake_variables](https://rez.readthedocs.io/en/stable/configuring_rez.html#rez_1_cmake_variables)
+  is now disabled by default.
+
+Some default values will change in 3.0.0:
+
+- [disable_rez_1_compatibility](https://rez.readthedocs.io/en/stable/configuring_rez.html#disable_rez_1_compatibility) will become enabled by default.
+- [rez_1_environment_variables](https://rez.readthedocs.io/en/stable/configuring_rez.html#rez_1_environment_variables) will become disabled by default.
+
+## 2.113.0 (2023-09-11)
+[Source](https://github.com/AcademySoftwareFoundation/rez/tree/2.113.0) | [Diff](https://github.com/AcademySoftwareFoundation/rez/compare/2.112.0...2.113.0)
+
+**Notes**
+
+Numerous maintenance updates to CI, TSC notes, docs, ownership, badges, and licensing not featured below.
+
+Expect [\#1469](https://github.com/AcademySoftwareFoundation/rez/pull/1469) to merge in 2.114.0, which will drop the ability to install rez with versions of python below 3.7.
+
+**Merged pull requests:**
+
+- powershell: fix prepend for new variables and fix unsetenv for non-existing variables [\#1477](https://github.com/AcademySoftwareFoundation/rez/pull/1477) ([maxnbk](https://github.com/maxnbk))
+- @include: Only include modules from the current package [\#1485](https://github.com/AcademySoftwareFoundation/rez/pull/1485) ([SitiSchu](https://github.com/SitiSchu))
+- Colorize: Granularly wrap each given stream with Colorama [\#1506](https://github.com/AcademySoftwareFoundation/rez/pull/1506) ([herronelou](https://github.com/herronelou))
+- Fix 'gbk' codec can't encode character '\u200b' when resolve context [\#1508](https://github.com/AcademySoftwareFoundation/rez/pull/1508) ([loonghao](https://github.com/loonghao))
+- Allow user to pass extra arguments to underlying rez test command (REP-001 part 3). [\#1523](https://github.com/AcademySoftwareFoundation/rez/pull/1523) ([bhawkyard1](https://github.com/bhawkyard1))
+- Filter out empty extensions when parsing PATHEXT on Windows [\#1528](https://github.com/AcademySoftwareFoundation/rez/pull/1528) ([herronelou](https://github.com/herronelou))
 
 ## 2.112.0 (2022-11-15)
 [Source](https://github.com/AcademySoftwareFoundation/rez/tree/2.112.0) | [Diff](https://github.com/AcademySoftwareFoundation/rez/compare/2.111.3...2.112.0)
@@ -2239,42 +2499,42 @@ be on the lookout for unintended side effects and report them if they arise.
 
 ## 2.26.4 [[#562](https://github.com/AcademySoftwareFoundation/rez/pull/562)] Fixed Regression in 2.24.0
 
-#### Addressed Issues
+### Addressed Issues
 
 * [#561](https://github.com/AcademySoftwareFoundation/rez/issues/561) timestamp not written to installed package
 
 
 ## 2.26.3 [[#560](https://github.com/AcademySoftwareFoundation/rez/pull/560)] Package.py permissions issue
 
-#### Addressed Issues
+### Addressed Issues
 
 * [#559](https://github.com/AcademySoftwareFoundation/rez/issues/559) package.py permissions issue
 
-#### Notes
+### Notes
 
 Fixes issue where installed `package.py` can be set to r/w for only the current user.
 
 
 ## 2.26.2 [[#557](https://github.com/AcademySoftwareFoundation/rez/pull/557)] Package Copy Fixes For Non-Varianted Packages
 
-#### Addressed Issues
+### Addressed Issues
 
 * [#556](https://github.com/AcademySoftwareFoundation/rez/issues/556) rez-cp briefly copies original package definition in non-varianted packages
 * [#555](https://github.com/AcademySoftwareFoundation/rez/issues/555) rez-cp inconsistent symlinking when --shallow=true
 * [#554](https://github.com/AcademySoftwareFoundation/rez/issues/554) rez-cp doesn't keep file metadata in some cases
 
-#### Notes
+### Notes
 
 There were various minor issues related to copying non-varianted packages.
 
 
 ## 2.26.1 [[#552](https://github.com/AcademySoftwareFoundation/rez/pull/552)] Bugfix in Package Copy
 
-#### Addressed Issues
+### Addressed Issues
 
 * [#551](https://github.com/AcademySoftwareFoundation/rez/issues/551) package copy fails if symlinks in root dir
 
-#### Notes
+### Notes
 
 This was failing when symlinks were present within a non-varianted package being copied. Now, these
 symlinks are retained in the target package, unless `--follow-symlinks` is specified.
@@ -2282,19 +2542,19 @@ symlinks are retained in the target package, unless `--follow-symlinks` is speci
 
 ## 2.26.0 [[#550](https://github.com/AcademySoftwareFoundation/rez/pull/550)] Build System Detection Fixes
 
-#### Addressed Issues
+### Addressed Issues
 
 * [#549](https://github.com/AcademySoftwareFoundation/rez/issues/549) '--build-system' rez-build option not always
   available
 
-#### Notes
+### Notes
 
 To fix this issue:
 * The '--build-system' rez-build option is now always present.
 * To provide further control over the build system type, the package itself can now specify its build
   system - see https://github.com/AcademySoftwareFoundation/rez/wiki/Package-Definition-Guide#build_system
 
-#### COMPATIBILITY ISSUE!
+### COMPATIBILITY ISSUE!
 
 Unfortunately, the 'cmake' build system had its own '--build-system' commandline option also. This
 was possible because previous rez versions suppressed the standard '--build-system' option if only
@@ -2304,7 +2564,7 @@ changed to '--cmake-build-system'**.
 
 ## 2.25.0 [[#548](https://github.com/AcademySoftwareFoundation/rez/pull/548)] Various Build-related issues
 
-#### Addressed Issues
+### Addressed Issues
 
 * [#433](https://github.com/AcademySoftwareFoundation/rez/issues/433): "package_definition_build_python_paths" defined
   paths are not available from top level in package.py
@@ -2312,7 +2572,7 @@ changed to '--cmake-build-system'**.
 * [#416](https://github.com/AcademySoftwareFoundation/rez/issues/416): Need currently-building-variant build variables
 * [#547](https://github.com/AcademySoftwareFoundation/rez/issues/547): rez-cp follows symlinks within package payload
 
-#### Notes
+### Notes
 
 The biggest update in this release is the introduction of new variables accessible at early-bind time:
 building, build_variant_index and build_variant_requires. This allows you to do things like define
@@ -2343,13 +2603,13 @@ intact - but hte previous behavior can still be accessed with the rez-cp --follo
 This release adds a new tool, rez-cp, for copying packages/variants from one package repository to
 another, with optional renaming/reversioning. The associated API can be found in src/package_copy.py.
 
-#### Addressed Issues
+### Addressed Issues
 
 * #541
 * #510
 * #477
 
-#### Notes
+### Notes
 
 * Package definition file writes are now atomic;
 * private_build_requires is kept in installed/released packages;
@@ -2359,22 +2619,22 @@ another, with optional renaming/reversioning. The associated API can be found in
 
 ## 2.23.1: Fixed Regression in 2.20.0
 
-#### Addressed Issues
+### Addressed Issues
 
 * #532
 
-#### Notes
+### Notes
 
 Bug was introduced in: https://github.com/AcademySoftwareFoundation/rez/releases/tag/2.20.0
 
 
 ## 2.23.0: Package Usage Tracking, Better Config Overrides
 
-#### Addressed Issues
+### Addressed Issues
 
 * #528
 
-#### Notes
+### Notes
 
 Two new features are added in this release:
 
@@ -2393,7 +2653,7 @@ The embedded simplejson lib was removed. The native json lib is used instead, an
 
 ## 2.22.1: Stdin-related fixes
 
-#### Addressed Issues
+### Addressed Issues
 
 * #512
 * #526
@@ -2403,7 +2663,7 @@ The embedded simplejson lib was removed. The native json lib is used instead, an
 
 PR: #213
 
-#### Notes
+### Notes
 
 Package/variant/family search API is now available in package_search.py. This gives the same
 functionality as provided by the rez-search CLI tool.
@@ -2416,13 +2676,13 @@ PR: #501
 
 ## 2.20.1: Windows Fixes
 
-#### Merged PRs
+### Merged PRs
 
 * #490: Fix alias command in Windows when PATH is modified
 * #489: Fix cmd.exe not escaping special characters
 * #482: Fix selftest getting stuck on Windows
 
-#### Addressed Issues
+### Addressed Issues
 
 * #389
 * #343
@@ -2434,11 +2694,11 @@ PR: #501
 
 PR: #523
 
-#### Addressed Issues
+### Addressed Issues
 
 * #492
 
-#### Notes
+### Notes
 
 The rez-python command now supports all native python args and passes those through to its python
 subprocess - so you can now shebang with rez-python if that is useful.
@@ -2450,15 +2710,15 @@ extraneous args after -- tokens.
 
 ## 2.19.1: Fixed bug with rez-build and package preprocess
 
-#### Merged PRs
+### Merged PRs
 
 * #522
 
-#### Addressed Issues
+### Addressed Issues
 
 * #514
 
-#### Notes
+### Notes
 
 The problem occurred because the preprocess function was attempting to be serialized when the package
 definition is cached to memcache. However, this function is stripped in installed packages;

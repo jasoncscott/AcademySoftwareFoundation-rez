@@ -11,8 +11,6 @@ with a faster resolve.
 
 See SOLVER.md for an in-depth description of how this module works.
 """
-from __future__ import print_function
-
 from rez.config import config
 from rez.packages import iter_packages
 from rez.package_repository import package_repo_stats
@@ -23,11 +21,10 @@ from rez.vendor.pygraph.algorithms.cycles import find_cycle
 from rez.vendor.pygraph.algorithms.accessibility import accessibility
 from rez.exceptions import PackageNotFoundError, ResolveError, \
     PackageFamilyNotFoundError, RezSystemError
-from rez.vendor.version.version import VersionRange
-from rez.vendor.version.requirement import VersionedObject, Requirement, \
-    RequirementList
-from rez.vendor.enum import Enum
+from rez.version import VersionRange
+from rez.version import VersionedObject, Requirement, RequirementList
 from contextlib import contextmanager
+from enum import Enum
 from itertools import product, chain
 import copy
 import time
@@ -137,10 +134,8 @@ class _Printer(object):
     def pr(self, txt='', *args):
         print(txt % args, file=self.buf)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self.verbosity > 0
-
-    __bool__ = __nonzero__  # py3 compat
 
 
 class SolverState(object):
@@ -420,6 +415,8 @@ class _PackageEntry(object):
             here as a safety measure so that sorting is guaranteed repeatable
             regardless.
         """
+        from rez.package_order import get_orderer
+
         if self.sorted:
             return
 
@@ -431,13 +428,17 @@ class _PackageEntry(object):
                 if not request.conflict:
                     req = variant.requires_list.get(request.name)
                     if req is not None:
-                        requested_key.append((-i, req.range))
+                        orderer = get_orderer(req.name, orderers=self.solver.package_orderers or {})
+                        range_key = orderer.sort_key(req.name, req.range)
+                        requested_key.append((-i, range_key))
                         names.add(req.name)
 
             additional_key = []
             for request in variant.requires_list:
                 if not request.conflict and request.name not in names:
-                    additional_key.append((request.range, request.name))
+                    orderer = get_orderer(request.name, orderers=self.solver.package_orderers)
+                    range_key = orderer.sort_key(request.name, request.range)
+                    additional_key.append((range_key, request.name))
 
             if (VariantSelectMode[config.variant_select_mode] == VariantSelectMode.version_priority):
                 k = (requested_key,
@@ -807,6 +808,7 @@ class _PackageVariantSlice(_Common):
 
         if not fams:
             # trivial case, split on first variant
+            self.entries[0].sort()
             return _split(0, 1)
 
         # find split point - first variant with no dependency shared with previous
@@ -836,25 +838,21 @@ class _PackageVariantSlice(_Common):
         The order is typically descending, but package order functions can
         change this.
         """
+        from rez.package_order import get_orderer
+
         if self.sorted:
             return
 
-        for orderer in (self.solver.package_orderers or []):
-            entries = orderer.reorder(self.entries, key=lambda x: x.package)
-            if entries is not None:
-                self.entries = entries
-                self.sorted = True
+        orderer = get_orderer(self.package_name, orderers=self.solver.package_orderers or {})
 
-                if self.pr:
-                    self.pr("sorted: %s packages: %s", self.package_name, repr(orderer))
-                return
+        def sort_key(entry):
+            return orderer.sort_key(entry.package.name, entry.version)
 
-        # default ordering is version descending
-        self.entries = sorted(self.entries, key=lambda x: x.version, reverse=True)
+        self.entries = sorted(self.entries, key=sort_key, reverse=True)
         self.sorted = True
 
         if self.pr:
-            self.pr("sorted: %s packages: version descending", self.package_name)
+            self.pr("sorted: %s packages: %s", self.package_name, repr(orderer))
 
     def dump(self):
         print(self.package_name)
@@ -1383,10 +1381,16 @@ class _ResolvePhase(_Common):
                                 # Raise with more info when match found
                                 searched = "; ".join(self.solver.package_paths)
                                 requested = ", ".join(requesters)
+
+                                fail_message = ("package family not found: {}, was required by: {} (searched: {})"
+                                                .format(req.name, requested, searched))
+                                # TODO: Test with memcached to see if this can cause any conflicting behaviour
+                                #       where a package may show as missing/available inadvertently
+                                if not config.error_on_missing_variant_requires:
+                                    print(fail_message, file=sys.stderr)
+                                    return _create_phase(SolverStatus.failed)
                                 raise PackageFamilyNotFoundError(
-                                    "package family not found: %s, "
-                                    "was required by: %s (searched: %s)"
-                                    % (req.name, requested, searched))
+                                    fail_message)
 
                         scopes.append(scope)
                         if self.pr:
@@ -2212,6 +2216,7 @@ class Solver(_Common):
             failure_index: Index of the fail to return the graph for (can be
                 negative). If None, the most appropriate failure is chosen
                 according to these rules:
+
                 - If the fail is cyclic, the most recent fail (the one containing
                   the cycle) is used;
                 - If a callback has caused a failure, the most recent fail is used;
@@ -2398,7 +2403,10 @@ class Solver(_Common):
         except IndexError:
             raise IndexError("failure index out of range")
 
-        fail_description = phase.failure_reason.description()
+        if phase.failure_reason is None:
+            fail_description = "Solver failed with unknown reason."
+        else:
+            fail_description = phase.failure_reason.description()
         if prepend_abort_reason and self.abort_reason:
             fail_description = "%s:\n%s" % (self.abort_reason, fail_description)
 

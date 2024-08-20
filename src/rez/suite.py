@@ -2,8 +2,6 @@
 # Copyright Contributors to the Rez Project
 
 
-from __future__ import print_function
-
 from rez.utils.execution import create_forwarding_script
 from rez.exceptions import SuiteError, ResolvedContextError
 from rez.resolved_context import ResolvedContext
@@ -13,15 +11,11 @@ from rez.utils.colorize import warning, critical, Printer, alias as alias_col
 from rez.vendor import yaml
 from rez.vendor.yaml.error import YAMLError
 from rez.utils.yaml import dump_yaml
-from rez.vendor.six import six
 from collections import defaultdict
 import os
 import os.path
 import shutil
 import sys
-
-
-basestring = six.string_types[0]
 
 
 class Suite(object):
@@ -39,6 +33,7 @@ class Suite(object):
     context's tools override tools from other contexts.
 
     There are several ways to avoid tool name clashes:
+
     - Hide a tool. This removes it from the suite even if it does not clash;
     - Prefix/suffix a context. When you do this, all the tools in the context
       have the prefix/suffix applied;
@@ -154,7 +149,7 @@ class Suite(object):
             names = [x for x in names if _in_request(x)]
 
         if in_resolve:
-            if isinstance(in_resolve, basestring):
+            if isinstance(in_resolve, str):
                 in_resolve = PackageRequest(in_resolve)
 
             def _in_resolve(name):
@@ -300,7 +295,8 @@ class Suite(object):
         """Get the tools exposed by this suite.
 
         Returns:
-            A dict, keyed by aliased tool name, with dict entries:
+            dict: A dict, keyed by aliased tool name, with dict entries:
+
             - tool_name (str): The original, non-aliased name of the tool;
             - tool_alias (str): Aliased tool name (same as key);
             - context_name (str): Name of the context containing the tool;
@@ -354,7 +350,8 @@ class Suite(object):
         Hidden tools are those that have been explicitly hidden via `hide_tool`.
 
         Returns:
-            A list of dicts, where each dict contains:
+            list[dict]: A list of dicts, where each dict contains:
+
             - tool_name (str): The original, non-aliased name of the tool;
             - tool_alias (str): Aliased tool name (same as key);
             - context_name (str): Name of the context containing the tool;

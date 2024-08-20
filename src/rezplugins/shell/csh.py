@@ -5,10 +5,10 @@
 """
 CSH shell
 """
-import pipes
 import os.path
 import subprocess
 import re
+from shlex import quote
 
 from rez.config import config
 from rez.util import shlex_join
@@ -105,7 +105,7 @@ class CSH(UnixShell):
 
         for is_literal, txt in value.strings:
             if is_literal:
-                txt = pipes.quote(txt)
+                txt = quote(txt)
                 if not txt.startswith("'"):
                     txt = "'%s'" % txt
             else:

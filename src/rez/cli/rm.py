@@ -5,7 +5,6 @@
 '''
 Remove package(s) from a repository.
 '''
-from __future__ import print_function
 import sys
 
 
@@ -36,7 +35,7 @@ def setup_parser(parser, completions=False):
 
 
 def remove_package(opts, parser):
-    from rez.vendor.version.requirement import VersionedObject
+    from rez.version import VersionedObject
     from rez.package_remove import remove_package
 
     if opts.dry_run:
@@ -55,7 +54,7 @@ def remove_package(opts, parser):
 
 
 def remove_package_family(opts, parser, force=False):
-    from rez.vendor.version.requirement import VersionedObject
+    from rez.version import VersionedObject
     from rez.package_remove import remove_package_family
     from rez.exceptions import PackageRepositoryError
 

@@ -27,12 +27,12 @@ tested.
 <tr><td>
 argcomplete
 </td><td>
-?
+6f943d76400d6755c2152deff4f2c5c5fa4d9e7c (Jul 20, 2014)
 </td><td>
 Apache 2.0
 </td><td>
 https://github.com/kislyuk/argcomplete<br>
-Our version seems patched.
+Our version is patched.
 </td></tr>
 
 <!-- ######################################################### -->
@@ -149,7 +149,7 @@ Added (July 2019) to enable PEP440 compatible versions handling.
 <tr><td>
 pika
 </td><td>
-1.2.0
+1.2.0 (Feb 5, 2021)
 </td><td>
 BSD 3-Clause
 </td><td>
@@ -215,7 +215,7 @@ Updated (July 2019) along with pydot to allow for packaging lib to be used.
 <tr><td>
 schema
 </td><td>
-0.3.1 (Apr 28, 2014)
+0.3.1 (Apr 28, 2014) (https://github.com/keleshev/schema/blob/916ba05e22b7b370b3586f97c40695e7b9e7fe33)
 </td><td>
 MIT
 </td><td>
